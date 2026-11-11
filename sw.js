@@ -1,6 +1,6 @@
 // Service worker: lưu sẵn toàn bộ ứng dụng để chạy ngoại tuyến.
 // Đổi VERSION mỗi lần phát hành để thiết bị tải bản mới.
-const VERSION = 'kvm-v1';
+const VERSION = 'kvm-v2';
 const ASSETS = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/app.js', 'js/store.js', 'js/srs.js', 'js/conjugate.js', 'js/ui.js', 'js/tts.js', 'js/csv.js', 'js/ai.js',
