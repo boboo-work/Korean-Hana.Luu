@@ -1,4 +1,4 @@
-import { S } from '../store.js';
+import { S, setSetting } from '../store.js';
 import { esc, $, go, bind, header, icon, toast } from '../ui.js';
 import { speak, startRec, stopRec, recSupported, ttsSupported } from '../tts.js';
 import { analyze, conjugate } from '../conjugate.js';
@@ -19,9 +19,12 @@ export function viewConjugate(root, _rest, query) {
       ${multi ? `<div class="notice ${c.certain ? 'info' : ''}"><b>${c.certain ? 'Từ này có nhiều nghĩa với cách chia khác nhau' : '⚠ Cần kiểm chứng'}</b>${c.certain ? '' : `<br>${esc(c.why || '')}`}<br>Chọn cách chia:
         <div class="chips" style="margin:8px 0 0;padding:0">${a.candidates.map((x, i) => `<button class="chip ${i === pick ? 'on' : ''}" data-act="pick" data-i="${i}">${esc(x.label)}${x.meaning ? ' · ' + esc(x.meaning) : ''}</button>`).join('')}</div></div>`
       : !c.certain ? `<div class="notice"><b>⚠ Cần kiểm chứng</b><br>${esc(c.why || '')}</div>`
-      : `<div class="notice ok">✓ Quy tắc đã xác định: <b>${esc(c.label)}</b>${c.why ? '<br><span class="small">' + esc(c.why) + '</span>' : ''}</div>`}
+      : `<div class="notice ok">Kiểu chia: <b>${esc(c.label)}</b>${c.why ? '<br><span class="small">' + esc(c.why) + '</span>' : ''}</div>`}
+      ${(() => { const v = S.vocab.find((x) => x.word === a.word); const isVA = v && ['Động từ', 'Tính từ', 'Thành ngữ', 'Cụm từ', ''].includes(v.pos || '');
+        return v && !isVA ? `<div class="notice"><b>⚠ Trong sổ từ, “${esc(a.word)}” là ${esc(v.pos.toLowerCase())}</b>, không phải động từ hay tính từ. Bảng chia bên dưới không áp dụng cho từ này.</div>`
+          : !v && c.type !== 'ncop' ? '<p class="small muted" style="margin:-4px 2px 10px">Công cụ chia theo quy tắc và không kiểm tra từ có tồn tại hay không. Hãy chắc rằng đây là động từ hoặc tính từ.</p>' : ''; })()}
       <div class="card cj"><div class="line"><span>Dạng từ điển</span><b>${esc(a.word)}</b></div><div class="line"><span>Gốc từ</span><b>${esc(r.stem)}-</b></div><div class="line"><span>Kiểu chia</span><b style="font-family:var(--ui);font-size:15px">${esc(c.label)}</b></div></div>
-      ${r.groups.map(([title, rows]) => `<div class="card cj"><h3>${esc(title)}</h3>${rows.map(([l, f]) => `<div class="line"><span>${esc(l)}</span><b>${esc(f)}${ttsSupported() && !f.includes('/') && !f.includes('(') ? ` <button class="iconbtn" style="display:inline-grid;width:32px;height:32px;vertical-align:middle" data-act="say" data-t="${esc(f)}" aria-label="Nghe ${esc(f)}">${icon('sound')}</button>` : ''}</b></div>`).join('')}</div>`).join('')}
+      ${r.groups.map(([title, rows]) => `<div class="card cj"><h3>${esc(title)}</h3>${rows.map(([l, f]) => `<div class="line"><span>${esc(l)}</span><b>${esc(f)}${ttsSupported() && !f.includes('/') && !f.includes('(') ? ` <button class="iconbtn" style="display:inline-grid;vertical-align:middle" data-act="say" data-t="${esc(f)}" aria-label="Nghe ${esc(f)}">${icon('sound')}</button>` : ''}</b></div>`).join('')}</div>`).join('')}
       <div class="card"><h2>Ghi chú</h2><ul class="notes" style="margin-top:8px">${r.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul></div>
       <p class="small muted center">Kết quả được tạo theo quy tắc ngữ pháp, không phải tra từ điển. Với từ hiếm, hãy đối chiếu thêm.</p>`;
   };
@@ -70,8 +73,9 @@ export function viewListen(root, _rest, query) {
 }
 
 // ---------- AI Tutor ----------
-let history = []; // [{role, content}] – giữ trong phiên làm việc
+let history = null; // [{role, content}] – lưu trên thiết bị (40 tin gần nhất), không nằm trong tệp sao lưu
 let busy = null;
+const saveHistory = () => setSetting('tutorHistory', history.slice(-40));
 
 export function viewTutor(root) {
   if (!aiReady()) {
@@ -83,6 +87,7 @@ export function viewTutor(root) {
     bind(root, { set: () => go('#/settings') });
     return;
   }
+  if (!history) history = Array.isArray(S.settings.tutorHistory) ? S.settings.tutorHistory.filter((m) => m && typeof m.content === 'string') : [];
   const msgHtml = (m) => `<div class="msg ${m.role === 'user' ? 'user' : m.error ? 'err' : 'ai'} ko">${esc(m.content)}</div>`;
   root.innerHTML = header('AI Tutor', { back: '#/home', sub: 'AI 한국어 선생님', right: `<button class="iconbtn" data-act="clear" aria-label="Cuộc trò chuyện mới">${icon('trash')}</button>` }) + `
     <div class="chips">${TASKS.map(([t], i) => `<button class="chip" data-act="task" data-i="${i}">${esc(t)}</button>`).join('')}</div>
@@ -96,20 +101,24 @@ export function viewTutor(root) {
     if (!history.length) chat.innerHTML = '';
     history.push({ role: 'user', content: text });
     chat.insertAdjacentHTML('beforeend', msgHtml(history[history.length - 1]));
+    const userEl = chat.lastElementChild;
     box.value = '';
     const el = document.createElement('div'); el.className = 'msg ai ko'; el.textContent = '…'; chat.appendChild(el); bottom();
     busy = new AbortController(); $('#send', root).textContent = 'Dừng';
     try {
       const answer = await ask(history.filter((m) => !m.error).map(({ role, content }) => ({ role, content })), (t) => { el.textContent = t; }, busy.signal);
       history.push({ role: 'assistant', content: answer || '(Không có nội dung trả lời)' }); el.textContent = history[history.length - 1].content;
+      saveHistory();
     } catch (e) {
-      el.className = 'msg err'; el.textContent = e.name === 'AbortError' ? 'Đã dừng.' : 'Không nhận được câu trả lời. ' + (e.message === 'Failed to fetch' || e.message === 'Load failed' ? 'Kiểm tra kết nối mạng (AI Tutor cần Internet).' : e.message);
+      // Tin chưa được trả lời không nằm trong ngữ cảnh các lần gửi sau; trả lại ô nhập để gửi lại.
+      history.pop(); userEl.remove(); if (!box.value) box.value = text;
+      el.className = 'msg err'; el.textContent = e.name === 'AbortError' ? 'Đã dừng. Câu hỏi được trả lại ô nhập.' : 'Không nhận được câu trả lời. ' + (e.message === 'Failed to fetch' || e.message === 'Load failed' ? 'Kiểm tra kết nối mạng (AI Tutor cần Internet).' : e.message);
     }
     busy = null; const b = $('#send', root); if (b) b.textContent = 'Gửi';
   };
   $('#f', root).onsubmit = (e) => { e.preventDefault(); if (busy) busy.abort(); else send(); };
   bind(root, {
     task: (el) => { box.value = TASKS[+el.dataset.i][1]; box.focus(); },
-    clear: () => { if (busy) busy.abort(); history = []; viewTutor(root); },
+    clear: () => { if (busy) busy.abort(); history = []; saveHistory(); viewTutor(root); },
   });
 }

@@ -59,6 +59,7 @@ function start(mode) {
 }
 
 export function viewPractice(root) {
+  if (!['today', 'all', 'fav'].includes(source) && !S.cats.some((c) => c.id === source)) source = 'today';
   const q = todayQueue();
   const opts = [['today', `Ôn tập hôm nay (${q.due.length} đến hạn + ${q.fresh.length} mới)`], ['all', 'Tất cả từ (ngẫu nhiên 20)'], ['fav', '★ Yêu thích'], ...S.cats.map((c) => [c.id, c.name])];
   root.innerHTML = header('Luyện tập', { sub: '연습' }) + `
@@ -134,6 +135,8 @@ export function viewSession(root) {
     quit: () => { ses = null; go('#/practice'); },
     say: (el) => speak(el.dataset.t, { slow: el.dataset.slow === '1' }),
     rate: async (el) => {
+      if (st.rated) return; // chặn bấm nhiều lần: mỗi thẻ chỉ ghi một lượt
+      st.rated = true;
       const q = +el.dataset.q;
       await rate(key, q, mode);
       ses.rated++;

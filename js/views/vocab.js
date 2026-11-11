@@ -18,11 +18,14 @@ function matches(w) {
   return [w.word, w.roman, w.vi, w.en, w.hanja, w.topic].some((x) => (x || '').toLowerCase().includes(q));
 }
 
+let limit = 150;
 export function viewVocabList(root) {
+  if (!['all', 'fav'].includes(filter.cat) && !S.cats.some((c) => c.id === filter.cat)) filter.cat = 'all'; // danh mục đã bị xóa
+  limit = 150;
   const listHtml = () => {
-    const items = S.vocab.filter(matches).sort((a, b) => (b.created || 0) - (a.created || 0) || a.id.localeCompare(b.id));
+    const items = S.vocab.filter(matches).sort((a, b) => (b.created || 0) - (a.created || 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     if (!items.length) return `<div class="empty">Không có từ nào phù hợp.<br><span class="small">Nhấn + để thêm từ mới.</span></div>`;
-    return `<p class="small muted" style="margin:2px 4px 8px">${items.length} từ</p><div class="list">` + items.map((w) => `
+    return `<p class="small muted" style="margin:2px 4px 8px">${items.length} từ</p><div class="list">` + items.slice(0, limit).map((w) => `
       <div class="item">
         <i class="dot ${status('v:' + w.id)}" title="Trạng thái học"></i>
         <button class="grow" data-act="open" data-id="${esc(w.id)}" style="text-align:left">
@@ -31,7 +34,7 @@ export function viewVocabList(root) {
         </button>
         <button class="iconbtn" data-act="say" data-t="${esc(w.word)}" aria-label="Nghe phát âm">${icon('sound')}</button>
         <button class="iconbtn ${w.fav ? 'on' : ''}" data-act="fav" data-id="${esc(w.id)}" aria-label="Yêu thích" aria-pressed="${!!w.fav}">${icon('star')}</button>
-      </div>`).join('') + '</div>';
+      </div>`).join('') + '</div>' + (items.length > limit ? `<button class="btn block" style="margin-top:10px" data-act="more">Hiện thêm (còn ${items.length - limit} từ)</button>` : '');
   };
   const chipsHtml = () => [['all', 'Tất cả'], ['fav', '★ Yêu thích'], ...sortedCats().map((c) => [c.id, c.name])]
     .map(([id, n]) => `<button class="chip ${filter.cat === id ? 'on' : ''}" data-act="cat" data-id="${esc(id)}">${esc(n)}</button>`).join('');
@@ -42,8 +45,10 @@ export function viewVocabList(root) {
     <div id="list">${listHtml()}</div>
     <button class="fab" data-act="add" aria-label="Thêm từ mới">${icon('plus')}</button>`;
   const refresh = () => { $('#list', root).innerHTML = listHtml(); };
-  $('#q', root).oninput = (e) => { filter.q = e.target.value; refresh(); };
+  let timer;
+  $('#q', root).oninput = (e) => { filter.q = e.target.value; limit = 150; clearTimeout(timer); timer = setTimeout(refresh, S.vocab.length > 500 ? 150 : 0); };
   bind(root, {
+    more: () => { limit += 300; refresh(); },
     open: (el) => go('#/vocab/' + el.dataset.id),
     add: () => go('#/vocab/edit/new'),
     say: (el) => speak(el.dataset.t),
@@ -150,7 +155,7 @@ export function viewVocabEdit(root, id) {
     for (const [k, v] of fd.entries()) if (k !== 'cats') out[k] = String(v).trim();
     out.word = out.word.normalize('NFC'); out.level = +out.level; out.cats = fd.getAll('cats');
     if (!out.word || !out.vi) return toast('Cần nhập từ tiếng Hàn và nghĩa tiếng Việt');
-    if (!old && S.vocab.some((x) => x.word === out.word)) return toast('Từ này đã có trong sổ');
+    if (S.vocab.some((x) => x.word === out.word && x.id !== out.id)) return toast('Từ này đã có trong sổ');
     await saveVocab(out); toast('Đã lưu'); go('#/vocab/' + out.id);
   };
 }
