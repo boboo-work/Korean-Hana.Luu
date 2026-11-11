@@ -109,7 +109,65 @@ function gBackHtml(g, explain) {
     <p class="small muted ko" style="margin-top:6px">${esc(g.formation)}</p>
     ${e ? `<div class="exbox" style="margin-top:10px"><div class="ko">${esc(e.ko)}</div><div class="muted">${esc(e.vi)}</div></div>` : ''}</div>`;
 }
-const rateHtml = (sug) => `<p class="small muted center" style="margin-top:16px">Bạn nhớ từ này ở mức nào?</p><div class="rate" style="margin-top:6px">${RATINGS.map((r) => `<button class="${r.cls} ${r.q === sug ? 'sug' : ''}" data-act="rate" data-q="${r.q}">${r.label}</button>`).join('')}</div>`;
+const ARROW = { 1: '←', 3: '↓', 4: '→', 5: '↑' };
+const rateHtml = (sug, arrows = false) => `<p class="small muted center" style="margin-top:16px">${arrows ? 'Vuốt thẻ theo mũi tên hoặc bấm nút' : 'Bạn nhớ từ này ở mức nào?'}</p><div class="rate" style="margin-top:6px">${RATINGS.map((r) => `<button class="${r.cls} ${r.q === sug ? 'sug' : ''}" data-act="rate" data-q="${r.q}">${arrows ? `<span class="arw" aria-hidden="true">${ARROW[r.q]}</span>` : ''}${r.label}</button>`).join('')}</div>`;
+
+// Mặt sau của thẻ lật (gọn hơn backHtml để vừa trong thẻ).
+function cardBack(w, showWord) {
+  return `${showWord ? `<div class="big">${esc(w.word)}</div>${w.hanja ? `<div class="ko muted">${esc(w.hanja)}</div>` : ''}${S.settings.showRoman && w.roman ? `<div class="muted">${esc(w.roman)}</div>` : ''}` : ''}
+    <div class="${showWord ? 'mean' : 'big vi'}">${esc(w.vi)}</div>${!showWord && w.en ? `<div class="muted">${esc(w.en)}</div>` : ''}
+    ${w.pos ? `<span class="tag">${esc(w.pos)}</span>` : ''}
+    <button class="btn sm" data-act="say" data-t="${esc(w.word)}">${icon('sound')} Nghe</button>
+    ${w.ex ? `<div class="exbox" style="width:100%;text-align:left"><div class="row"><div class="ko grow">${markEx(w.ex)}</div><button class="iconbtn" data-act="say" data-t="${esc(stripMark(w.ex))}" aria-label="Nghe câu ví dụ">${icon('sound')}</button></div><div class="muted">${esc(w.exVi)}</div></div>` : ''}
+    ${w.notes ? `<p class="small" style="text-align:left;width:100%"><b>Cách dùng:</b> ${esc(w.notes)}</p>` : ''}`;
+}
+
+// Thẻ lật: chạm để lật qua lại; vuốt 4 hướng để đánh giá (chỉ sau khi đã xem mặt sau).
+const SWIPE = { left: [1, 'Quên hoàn toàn', 'r0'], down: [3, 'Khó nhớ', 'r1'], right: [4, 'Đã nhớ', 'r2'], up: [5, 'Rất dễ', 'r3'] };
+function attachCard(root, st, onFlip, onRate) {
+  const card = $('#card', root), tag = $('#tag', root);
+  let start = null;
+  const dirOf = (dx, dy) => (Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down'));
+  const reset = () => { card.style.transition = 'transform .2s'; card.style.transform = ''; tag.className = 'swipe-tag'; };
+  const needFlip = () => toast('Hãy lật thẻ xem mặt sau trước khi đánh giá');
+  card.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('[data-act]') || st.rated || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    start = { x: e.clientX, y: e.clientY };
+    try { card.setPointerCapture(e.pointerId); } catch { /* con trỏ đã nhả */ }
+    card.style.transition = 'none';
+  });
+  card.addEventListener('pointermove', (e) => {
+    if (!start) return;
+    const dx = e.clientX - start.x, dy = e.clientY - start.y, dist = Math.hypot(dx, dy);
+    card.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx / 18}deg)`;
+    if (dist > 28) { const d = SWIPE[dirOf(dx, dy)]; tag.textContent = d[1]; tag.className = 'swipe-tag show ' + d[2] + (dist >= 80 ? ' go' : ''); } else tag.className = 'swipe-tag';
+  });
+  const end = (e, cancelled) => {
+    if (!start) return;
+    const dx = e.clientX - start.x, dy = e.clientY - start.y, dist = Math.hypot(dx, dy);
+    start = null;
+    if (cancelled) return reset();
+    if (dist < 8) { reset(); return onFlip(); }       // chạm = lật
+    if (dist < 80) return reset();                     // kéo chưa đủ xa: trả thẻ về chỗ cũ
+    if (!st.flipped) { reset(); return needFlip(); }
+    tag.className = 'swipe-tag';
+    card.style.transition = 'transform .18s ease-in, opacity .18s';
+    card.style.transform = `translate(${dx * 4}px, ${dy * 4}px) rotate(${dx / 8}deg)`; card.style.opacity = '0';
+    onRate(SWIPE[dirOf(dx, dy)][0]);
+  };
+  card.addEventListener('pointerup', (e) => end(e, false));
+  card.addEventListener('pointercancel', (e) => end(e, true));
+  card.addEventListener('keydown', (e) => {
+    if (e.target !== card) return;
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); return onFlip(); }
+    const k = { ArrowLeft: 'left', ArrowDown: 'down', ArrowRight: 'right', ArrowUp: 'up' }[e.key];
+    if (!k) return;
+    e.preventDefault();
+    if (!st.flipped) return needFlip();
+    onRate(SWIPE[k][0]);
+  });
+  card.focus({ preventScroll: true });
+}
 const verdict = (ok, text) => `<p class="verdict ${ok ? 'ok' : 'no'}" role="status">${ok ? '✓ Chính xác' : '✗ Chưa đúng'}${text ? ' — ' + text : ''}</p>`;
 
 export function viewSession(root) {
@@ -118,7 +176,8 @@ export function viewSession(root) {
   const it = ses.items[ses.i];
   const { mode } = ses;
   const w = it.w, g = it.g;
-  const st = { answered: false, ok: null };
+  const st = { answered: false, ok: null, flipped: false, rated: false };
+  const isCard = mode === 'ko-vi' || mode === 'vi-ko';
   const top = `<header class="top"><button class="iconbtn" data-act="quit" aria-label="Kết thúc phiên học">${icon('x')}</button>
     <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="${ses.items.length}" aria-valuenow="${ses.i}"><i style="width:${(ses.i / ses.items.length) * 100}%"></i></div>
     <span class="small muted" style="min-width:46px;text-align:right">${ses.i + 1}/${ses.items.length}</span></header>
@@ -128,31 +187,41 @@ export function viewSession(root) {
   const finish = (ok) => { // ok: true/false cho bài chấm điểm, null cho flashcard
     st.answered = true; st.ok = ok;
     if (ok !== null) { ses.graded++; if (ok) ses.right++; }
-    $('#after', root).innerHTML = after(ok) + rateHtml(ok === false ? 1 : ok === true ? 4 : 0);
-    const a = $('#after', root); a.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    $('#after', root).innerHTML = after(ok) + rateHtml(ok === false ? 1 : ok === true ? 4 : 0, isCard);
+    if (!isCard) $('#after', root).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
   const handlers = {
     quit: () => { ses = null; go('#/practice'); },
     say: (el) => speak(el.dataset.t, { slow: el.dataset.slow === '1' }),
-    rate: async (el) => {
-      if (st.rated) return; // chặn bấm nhiều lần: mỗi thẻ chỉ ghi một lượt
-      st.rated = true;
-      const q = +el.dataset.q;
-      await rate(key, q, mode);
-      ses.rated++;
-      if (q === 1 && !it.retry) ses.items.push({ ...it, retry: true });
-      ses.i++; viewSession(root);
-    },
+    rate: (el) => doRate(+el.dataset.q),
   };
+  async function doRate(q) {
+    if (st.rated) return; // chặn bấm/vuốt nhiều lần: mỗi thẻ chỉ ghi một lượt
+    st.rated = true;
+    await rate(key, q, mode);
+    ses.rated++;
+    if (q === 1 && !it.retry) ses.items.push({ ...it, retry: true });
+    ses.i++; viewSession(root);
+  }
 
   if (mode === 'ko-vi' || mode === 'vi-ko') {
     const front = mode === 'ko-vi'
       ? `<div class="big">${esc(w.word)}</div>${S.settings.showRoman && w.roman ? `<div class="muted">${esc(w.roman)}</div>` : ''}`
       : `<div class="big vi">${esc(w.vi)}</div>${w.en ? `<div class="muted">${esc(w.en)}</div>` : ''}<span class="tag">${esc(w.pos || '')}</span>`;
-    body = `<button class="card fc" data-act="flip" aria-label="Lật thẻ">${front}<div class="hint">Chạm để lật thẻ</div></button>
-      ${mode === 'ko-vi' ? `<div class="row" style="justify-content:center"><button class="btn sm" data-act="say" data-t="${esc(w.word)}">${icon('sound')} Nghe</button></div>` : ''}`;
-    after = () => backHtml(w);
-    handlers.flip = () => { if (!st.answered) { finish(null); if (mode === 'vi-ko') speak(w.word); } };
+    body = `<div class="flip" id="card" tabindex="0" role="button" aria-label="Thẻ từ vựng, đang ở mặt trước. Nhấn Enter để lật.">
+        <div class="flip-in">
+          <div class="face front card">${front}${mode === 'ko-vi' ? `<button class="btn sm" data-act="say" data-t="${esc(w.word)}">${icon('sound')} Nghe</button>` : ''}<div class="hint">Chạm để lật thẻ</div></div>
+          <div class="face back card">${cardBack(w, mode === 'vi-ko')}<div class="hint">Chạm để lật lại</div></div>
+        </div>
+        <div class="swipe-tag" id="tag" aria-hidden="true"></div>
+      </div>
+      <p class="small muted center swipe-help" aria-hidden="true">Chạm để lật · lật xong vuốt thẻ để đánh giá</p>`;
+    after = () => '';
+    it._init = () => attachCard(root, st, () => {
+      const card = $('#card', root); const on = card.classList.toggle('on');
+      card.setAttribute('aria-label', `Thẻ từ vựng, đang ở mặt ${on ? 'sau' : 'trước'}. Nhấn Enter để lật, phím mũi tên để đánh giá.`);
+      if (!st.flipped) { st.flipped = true; finish(null); if (mode === 'vi-ko') speak(w.word); }
+    }, doRate);
   } else if (mode === 'listen' || mode === 'spell') {
     const prompt = mode === 'listen'
       ? `<div class="card fc" style="min-height:190px"><button class="btn primary" data-act="say" data-t="${esc(w.word)}">${icon('sound')} Nghe</button><button class="btn sm" data-act="say" data-slow="1" data-t="${esc(w.word)}">Nghe chậm</button><div class="hint">Nghe rồi gõ lại từ bằng Hangul</div></div>`
