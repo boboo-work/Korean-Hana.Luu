@@ -13,6 +13,13 @@ export function koVoices() {
     return { uri: v.voiceURI, name: v.name, gender: k ? KNOWN[k] : 'Không rõ', voice: v };
   });
 }
+// Giọng mặc định: ưu tiên giọng đọc tự nhiên, tránh các giọng hiệu ứng của macOS/iOS (Eddy, Grandma…).
+const NOVELTY = /eddy|flo\b|grandma|grandpa|reed|rocko|sandy|shelley|bells|bubbles|organ|whisper|zarvox|trinoids|cellos|boing|bad news|good news|jester|junior|ralph|albert|fred|kathy|superstar|wobble/i;
+export function defaultVoice(vs = koVoices()) {
+  return vs.find((x) => /yuna|sora|google|heami|sunhi|sun-hi|injoon|in-joon|jihun|minsu/i.test(x.name))
+    || vs.find((x) => x.voice.default && !NOVELTY.test(x.name))
+    || vs.find((x) => !NOVELTY.test(x.name)) || vs[0];
+}
 export function onVoices(cb) { if (synth) synth.addEventListener('voiceschanged', cb, { once: true }); }
 
 export function speak(text, { slow = false } = {}) {
@@ -21,7 +28,7 @@ export function speak(text, { slow = false } = {}) {
   const u = new SpeechSynthesisUtterance(text.replace(/[{}]/g, ''));
   u.lang = 'ko-KR';
   const vs = koVoices();
-  const v = vs.find((x) => x.uri === S.settings.voiceURI) || vs[0];
+  const v = vs.find((x) => x.uri === S.settings.voiceURI) || defaultVoice(vs);
   if (v) u.voice = v.voice;
   u.rate = slow ? 0.55 : 0.95;
   synth.speak(u);

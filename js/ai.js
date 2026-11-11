@@ -32,7 +32,22 @@ export const TASKS = [
 
 export const aiReady = () => !!S.settings.aiKey;
 
-async function anthropic({ key, model, system, messages, onText, signal }) {
+const IDLE_MS = 60000; // không nhận được dữ liệu trong 60 giây thì coi như hết thời gian chờ
+
+async function anthropic({ key, model, system, messages, onText, signal: userSignal }) {
+  const ctl = new AbortController(); let timedOut = false, timer;
+  const arm = () => { clearTimeout(timer); timer = setTimeout(() => { timedOut = true; ctl.abort(); }, IDLE_MS); };
+  if (userSignal) userSignal.addEventListener('abort', () => ctl.abort(), { once: true });
+  const signal = ctl.signal;
+  arm();
+  try {
+    return await call();
+  } catch (e) {
+    if (timedOut) throw new Error('Hết thời gian chờ (60 giây không có phản hồi). Hãy thử lại.');
+    throw e;
+  } finally { clearTimeout(timer); }
+
+  async function call() {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST', signal,
     headers: {
@@ -55,6 +70,7 @@ async function anthropic({ key, model, system, messages, onText, signal }) {
   let buf = '', text = '', stop = null;
   for (;;) {
     const { done, value } = await reader.read(); if (done) break;
+    arm();
     buf += dec.decode(value, { stream: true });
     const lines = buf.split('\n'); buf = lines.pop();
     for (const line of lines) {
@@ -68,6 +84,7 @@ async function anthropic({ key, model, system, messages, onText, signal }) {
   if (stop === 'refusal') throw new Error('Mô hình đã từ chối yêu cầu này. Hãy thử diễn đạt lại câu hỏi.');
   if (stop === 'max_tokens') text += '\n\n[Câu trả lời bị cắt do quá dài]';
   return text;
+  }
 }
 
 const PROVIDERS = { anthropic };

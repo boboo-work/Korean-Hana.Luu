@@ -1,5 +1,5 @@
 // Khởi động ứng dụng + bộ định tuyến theo hash.
-import { init, S } from './store.js';
+import { init, S, reload } from './store.js';
 import { $, esc, icon } from './ui.js';
 import { viewHome, viewStats, viewSettings } from './views/main.js';
 import { viewVocabList, viewVocabDetail, viewVocabEdit, viewCats } from './views/vocab.js';
@@ -37,11 +37,20 @@ function render() {
   window.speechSynthesis && window.speechSynthesis.cancel();
   ROUTES[route](root, rest.length ? rest : [], new URLSearchParams(query));
   window.scrollTo(0, 0);
+  if (!root.contains(document.activeElement)) root.focus({ preventScroll: true }); // đưa focus vào màn hình mới
 }
 
 init().then(() => {
   applyTheme();
   window.addEventListener('hashchange', render);
+  // Quay lại tab: nạp lại dữ liệu từ DB (có thể tab khác vừa ghi). Không vẽ lại khi đang làm bài hoặc đang nhập liệu.
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState !== 'visible') return;
+    await reload();
+    const name = location.hash.replace(/^#\/?/, '').split(/[/?]/)[0] || 'home';
+    const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes((document.activeElement || {}).tagName);
+    if (['home', 'stats', 'vocab', 'grammar', 'practice', 'cats'].includes(name) && !location.hash.includes('/edit/') && !typing && !document.querySelector('.sheet-wrap')) render();
+  });
   render();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 }).catch((err) => {

@@ -38,10 +38,17 @@ const AMBIG = {
   '누르다': [['reu', 'ấn, nhấn'], ['reo', 'có màu vàng úa']],
 };
 
+// Động từ gốc kết thúc bằng 이 (không phải "danh từ + 이다").
+const VERB_IDA = ['보이다', '먹이다', '죽이다', '높이다', '줄이다', '늘이다', '끓이다', '붙이다', '덧붙이다', '속이다', '숙이다', '녹이다', '절이다', '졸이다', '조이다', '들이다', '받아들이다', '사들이다', '끌어들이다', '길들이다', '기울이다', '벌이다', '놓이다', '쓰이다', '쌓이다', '섞이다', '모이다', '덮이다', '묶이다', '깎이다', '닦이다', '꼬이다', '트이다', '끼이다', '파이다', '매이다', '베이다', '차이다', '고이다', '움직이다', '망설이다', '반짝이다', '끄덕이다', '속삭이다', '뒤척이다', '출렁이다', '서성이다', '울먹이다', '지껄이다'];
+// Động từ vốn đã là kính ngữ: không thêm (으)시 lần nữa.
+const HON_VERBS = ['계시다', '주무시다', '드시다', '잡수시다', '돌아가시다', '편찮으시다', '말씀하시다'];
+// Không có dạng phủ định ngắn "안 ~".
+const NO_SHORT_NEG = ['없다', '않다', '모르다', '못하다', '아니하다', '말다'];
+
 const TYPE_LABEL = {
   reg: 'Quy tắc', ha: '하다 (bất quy tắc 여)', d: 'Bất quy tắc ㄷ', b: 'Bất quy tắc ㅂ', s: 'Bất quy tắc ㅅ',
   h: 'Bất quy tắc ㅎ', l: 'Gốc ㄹ (rụng ㄹ)', reu: 'Bất quy tắc 르', reo: 'Bất quy tắc 러', u: 'Bất quy tắc 우',
-  eu: 'Rụng ㅡ', cop: 'Hệ từ (이다/아니다)',
+  eu: 'Rụng ㅡ', cop: 'Hệ từ (이다/아니다)', ncop: 'Danh từ + 이다',
 };
 
 const HONORIFIC_NOTE = {
@@ -73,6 +80,9 @@ export function analyze(word) {
   if (AMBIG[word]) return out(AMBIG[word].map(([t, m]) => cand(t, true, { meaning: m })));
   if (word === '푸다') return out([cand('u')]);
   if (last(stem) === '하') return out([cand('ha')]);
+  // Kết thúc bằng 이다: có thể là động từ (보이다) hoặc "danh từ + 이다" (학생이다) – không tự đoán.
+  if (last(stem) === '이' && stem.length > 1 && !VERB_IDA.includes(word))
+    return out([cand('ncop', true, { meaning: `danh từ “${init(stem)}” + 이다` }), cand('reg', true, { meaning: 'động từ / tính từ có gốc kết thúc bằng 이' })]);
 
   const [, v, j] = dec(last(stem));
   const byList = (irr, reg, type, suffixes = []) => {
@@ -173,6 +183,19 @@ const COPULA = {
 export function conjugate(word, type) {
   const stem = init(word);
   const notes = [];
+  if (type === 'ncop') {
+    const n = init(stem), bat = dec(last(n))[2] !== 0; // danh từ có patchim hay không
+    const p = (a, b) => n + (bat ? a : b);
+    notes.push(bat ? 'Danh từ có patchim: dùng 이에요, 이었어요, 이 아니에요.' : 'Danh từ không có patchim: dùng 예요, 였어요, 가 아니에요.');
+    return { stem: n, notes, groups: [
+      ['Hiện tại', [['해요체', p('이에요', '예요')], ['합니다체', n + '입니다'], ['해체', p('이야', '야')]]],
+      ['Quá khứ', [['해요체', p('이었어요', '였어요')], ['합니다체', p('이었습니다', '였습니다')], ['해체', p('이었어', '였어')]]],
+      ['Tương lai / phỏng đoán', [['해요체', n + '일 거예요'], ['합니다체', n + '일 겁니다'], ['해체', n + '일 거야']]],
+      ['Phủ định', [['해요체', p('이 아니에요', '가 아니에요')], ['합니다체', p('이 아닙니다', '가 아닙니다')], ['해체', p('이 아니야', '가 아니야')]]],
+      ['Nghi vấn', [['해요체', p('이에요', '예요') + '?'], ['합니다체', n + '입니까?'], ['해체', p('이야', '야') + '?']]],
+      ['Kính ngữ (으)시', [['해요체', p('이세요', '세요')], ['합니다체', p('이십니다', '십니다')], ['Quá khứ', p('이셨어요', '셨어요')]]],
+    ] };
+  }
   if (type === 'cop') {
     notes.push(word === '이다'
       ? 'Dạng trước dấu “/” dùng sau danh từ có patchim (학생이에요), dạng sau dùng sau danh từ không có patchim (의사예요).'
@@ -189,20 +212,29 @@ export function conjugate(word, type) {
     if (type === 'l') return withJong(withJong(stem, 0), J('ㅂ')) + suffix;
     return j === 0 ? withJong(stem, J('ㅂ')) + suffix : stem + '습' + suffix;
   };
+  const isHon = HON_VERBS.includes(word); // 계시다 → 계세요 (không phải 계시세요)
+  const hb = isHon ? init(stem) : eb;
+  // Phủ định ngắn: chỉ hiện dạng chắc chắn đúng.
+  const neg = [['Dạng dài · 해요체', stem + '지 않아요'], ['Dạng dài · 합니다체', stem + '지 않습니다'], ['Dạng dài · 해체', stem + '지 않아']];
+  if (word === '알다') neg.push(['Phủ định từ vựng', '몰라요 (모르다)']);
+  else if (word === '있다') neg.push(['Phủ định từ vựng', '없어요 (없다)']);
+  else if (type === 'ha' && stem.length > 1) neg.push(['Dạng ngắn · nếu là danh từ + 하다', init(stem) + ' 안 해요'], ['Dạng ngắn · nếu là tính từ / động từ khác', '안 ' + ao + '요']);
+  else if (!NO_SHORT_NEG.includes(word)) neg.push(['Dạng ngắn', '안 ' + ao + '요']);
   const groups = [
-    ['Hiện tại', [['해요체', ao + '요'], ['합니다체', formal('니다')], ['해체', ao]]],
+    ['Hiện tại', [['해요체', isHon ? hb + '세요 / ' + ao + '요' : ao + '요'], ['합니다체', formal('니다')], ['해체', ao]]],
     ['Quá khứ', [['해요체', past + '어요'], ['합니다체', past + '습니다'], ['해체', past + '어']]],
     ['Tương lai / phỏng đoán', [['해요체', fut + ' 거예요'], ['합니다체', fut + ' 겁니다'], ['해체', fut + ' 거야']]],
-    ['Phủ định', [['Dạng dài · 해요체', stem + '지 않아요'], ['Dạng dài · 합니다체', stem + '지 않습니다'], ['Dạng dài · 해체', stem + '지 않아'], ['Dạng ngắn', '안 ' + ao + '요']]],
+    ['Phủ định', neg],
     ['Nghi vấn', [['해요체', ao + '요?'], ['합니다체', formal('니까') + '?'], ['해체', ao + '?']]],
-    ['Kính ngữ (으)시', [['해요체', eb + '세요'], ['합니다체', eb + '십니다'], ['Quá khứ', eb + '셨어요']]],
+    [isHon ? 'Kính ngữ (từ này vốn đã là kính ngữ)' : 'Kính ngữ (으)시', [['해요체', hb + '세요'], ['합니다체', hb + '십니다'], ['Quá khứ', hb + '셨어요']]],
   ];
   if (type === 'ha' && stem.length > 1)
-    notes.push(`Dạng ngắn: nếu là “danh từ + 하다” (공부하다, 일하다…) thì 안 đứng trước 하다: ${init(stem)} 안 해요. Với tính từ (깨끗하다…) dùng “안 ${ao}요” hoặc dạng dài.`);
+    notes.push('Phủ định ngắn của 하다: với “danh từ + 하다” (공부하다, 일하다…) 안 đứng giữa; với tính từ và động từ không tách được (깨끗하다, 좋아하다…) 안 đứng trước. Công cụ không tự phân biệt được hai loại nên hiện cả hai.');
+  if (isHon) notes.push('Đây là động từ kính ngữ sẵn có, nên không thêm (으)시 lần nữa.');
+  if (NO_SHORT_NEG.includes(word)) notes.push('Từ này không dùng dạng phủ định ngắn “안 ~”.');
   if (type === 'l') notes.push('Gốc ㄹ: ㄹ rụng trước ㄴ, ㅂ, ㅅ và không thêm 으 (살다 → 삽니다, 사세요, 살 거예요).');
   if (type === 'h') notes.push('Bất quy tắc ㅎ: ㅎ rụng trước nguyên âm; trước phụ âm vẫn giữ (그렇습니다).');
   if (type === 'eu') notes.push('Rụng ㅡ trước 아/어; chọn 아 hay 어 theo nguyên âm của âm tiết đứng trước.');
-  if (stem.endsWith('이') && stem.length > 1) notes.push('Kết quả giả định đây là động/tính từ có gốc kết thúc bằng 이. Nếu là “danh từ + 이다” thì chia theo 이다 (이에요/예요).');
   if (HONORIFIC_NOTE[word]) notes.push(HONORIFIC_NOTE[word]);
   if (NEG_NOTE[word]) notes.push(NEG_NOTE[word]);
   notes.push('Thì hiện tại và các dạng trên giống nhau cho động từ và tính từ. Mệnh lệnh (으)세요 chỉ dùng với động từ.');

@@ -11,6 +11,8 @@ export const DEFAULTS = {
 export const S = { vocab: [], grammar: [], cats: [], srs: {}, reviews: [], settings: { ...DEFAULTS } };
 
 let idb;
+const SEED_VERSION = 2;
+const SEED_PATCH = new Set(['g-001', 'g-025', 'g-026', 'g-027']); // mục ngữ pháp mẫu đổi cấp độ / mô tả ở bản 2
 const STORES = { vocab: 'id', grammar: 'id', cats: 'id', srs: 'key', reviews: 'id', kv: 'k' };
 
 function open() {
@@ -63,10 +65,27 @@ export async function init() {
     await putMany('vocab', SEED_VOCAB);
     await putMany('grammar', SEED_GRAMMAR);
     await put('kv', { k: 'seeded', v: 1 });
+    await put('kv', { k: 'seedVersion', v: SEED_VERSION });
     await load();
   }
+  if ((S.settings.seedVersion || 1) < SEED_VERSION) await migrateSeed();
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 }
+
+// Cập nhật nội dung mẫu đã sửa lỗi cho người dùng cũ, giữ nguyên tiến độ và mục tự thêm.
+async function migrateSeed() {
+  for (const seed of SEED_GRAMMAR) {
+    const cur = S.grammar.find((g) => g.id === seed.id);
+    if (!cur) continue;
+    cur.quiz = seed.quiz;
+    if (SEED_PATCH.has(seed.id)) { cur.level = seed.level; cur.topik = seed.topik; cur.mistakes = seed.mistakes; }
+    await put('grammar', cur);
+  }
+  await setSetting('seedVersion', SEED_VERSION);
+}
+
+export const reload = () => load();
+export const freshCard = (key) => run('srs', 'readonly', (o) => o.get(key));
 
 export async function setSetting(k, v) { S.settings[k] = v; await put('kv', { k, v }); }
 
@@ -102,22 +121,39 @@ export async function logReview(r) {
 
 // ---- Sao lưu / khôi phục (không bao gồm khóa API) ----
 export function exportBackup() {
-  const settings = { ...S.settings }; delete settings.aiKey;
+  const settings = { ...S.settings }; delete settings.aiKey; delete settings.tutorHistory;
   return { app: 'korean-vocab-master', version: 1, exportedAt: new Date().toISOString(),
     vocab: S.vocab, grammar: S.grammar, cats: S.cats, srs: Object.values(S.srs), reviews: S.reviews, settings };
 }
 export async function importBackup(data) {
   if (!data || data.app !== 'korean-vocab-master' || !Array.isArray(data.vocab)) throw new Error('Tệp sao lưu không hợp lệ');
-  const key = S.settings.aiKey;
-  for (const s of Object.keys(STORES)) await clear(s);
-  await putMany('vocab', data.vocab);
-  await putMany('grammar', data.grammar || []);
-  await putMany('cats', data.cats || []);
-  await putMany('srs', data.srs || []);
-  await putMany('reviews', (data.reviews || []).map(({ id, ...r }) => r));
-  const st = { ...(data.settings || {}), seeded: 1 }; if (key) st.aiKey = key;
-  await putMany('kv', Object.entries(st).map(([k, v]) => ({ k, v })));
+  // Kiểm tra toàn bộ tệp TRƯỚC khi đụng tới dữ liệu hiện có.
+  const arr = (x) => (Array.isArray(x) ? x : []);
+  const has = (list, key) => list.every((o) => o && typeof o === 'object' && typeof o[key] === 'string' && o[key]);
+  const d = {
+    vocab: data.vocab, grammar: arr(data.grammar), cats: arr(data.cats), srs: arr(data.srs),
+    reviews: arr(data.reviews).map((r) => { const { id, ...rest } = r || {}; return rest; }),
+  };
+  const valid = has(d.vocab, 'id') && has(d.vocab, 'word') && has(d.grammar, 'id') && has(d.grammar, 'pattern')
+    && has(d.cats, 'id') && has(d.srs, 'key') && has(d.reviews, 'key') && has(d.reviews, 'day');
+  if (!valid) throw new Error('Tệp sao lưu bị hỏng (có mục thiếu thông tin bắt buộc). Dữ liệu hiện tại được giữ nguyên.');
+  d.vocab = d.vocab.map((w) => ({ ...w, cats: arr(w.cats) }));
+  d.grammar = d.grammar.map((g) => ({ ...g, examples: arr(g.examples), quiz: arr(g.quiz) }));
+  const st = { ...(data.settings && typeof data.settings === 'object' ? data.settings : {}), seeded: 1 };
+  if (S.settings.aiKey) st.aiKey = S.settings.aiKey;
+  // Xóa và ghi trong MỘT giao dịch: lỗi ở bất kỳ bước nào thì IndexedDB tự hoàn tác toàn bộ.
+  await new Promise((res, rej) => {
+    const fail = () => rej(new Error('Không ghi được bản sao lưu. Dữ liệu hiện tại được giữ nguyên.'));
+    const t = idb.transaction(Object.keys(STORES), 'readwrite');
+    t.oncomplete = () => res(); t.onerror = fail; t.onabort = fail;
+    try {
+      for (const s of Object.keys(STORES)) t.objectStore(s).clear();
+      for (const s of ['vocab', 'grammar', 'cats', 'srs', 'reviews']) d[s].forEach((v) => t.objectStore(s).put(v));
+      Object.entries(st).forEach(([k, v]) => t.objectStore('kv').put({ k, v }));
+    } catch (e) { try { t.abort(); } catch { /* đã hủy */ } fail(); }
+  });
   await load();
+  if ((S.settings.seedVersion || 1) < SEED_VERSION) await migrateSeed();
 }
 export async function resetAll() {
   for (const s of Object.keys(STORES)) await clear(s);

@@ -57,11 +57,17 @@ export function toast(msg) {
 
 // Bảng trượt từ dưới lên. Trả về hàm đóng.
 export function sheet(html, handlers = {}) {
+  document.querySelectorAll('.sheet-wrap').forEach((x) => x._close && x._close()); // không mở chồng hai bảng
+  const opener = document.activeElement;
   const wrap = document.createElement('div');
   wrap.className = 'sheet-wrap';
   wrap.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div>`;
   document.body.appendChild(wrap);
-  const close = () => wrap.remove();
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const close = () => { wrap.remove(); document.removeEventListener('keydown', onKey); if (opener && opener.focus && document.contains(opener)) opener.focus(); };
+  wrap._close = close;
+  document.addEventListener('keydown', onKey);
+  const panel = wrap.firstElementChild; panel.tabIndex = -1; panel.focus({ preventScroll: true });
   wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
   bind(wrap.firstElementChild, { close, ...Object.fromEntries(Object.entries(handlers).map(([k, f]) => [k, (el, e) => f(el, close, e)])) });
   return close;

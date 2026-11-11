@@ -8,7 +8,8 @@ export const FIELDS = [
   ['level', 'Difficulty'], ['topic', 'Topic'], ['cats', 'Categories'], ['fav', 'Favorite'],
 ];
 
-const q = (v) => { const s = String(v ?? ''); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+// Ô bắt đầu bằng = + - @ được thêm dấu ' để bảng tính không chạy như công thức.
+const q = (v) => { let s = String(v ?? ''); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
 
 export function toCSV(list = S.vocab) {
   const catName = Object.fromEntries(S.cats.map((c) => [c.id, c.name]));
@@ -52,7 +53,7 @@ export async function importCSV(text) {
   const catByName = Object.fromEntries(S.cats.map((c) => [norm(c.name), c.id]));
   let added = 0, updated = 0;
   for (const r of rows.slice(1)) {
-    const get = (k) => (col[k] !== undefined ? (r[col[k]] || '').trim() : undefined);
+    const get = (k) => (col[k] !== undefined ? (r[col[k]] || '').trim().replace(/^'(?=[=+\-@])/, '') : undefined);
     const word = get('word'); if (!word) continue;
     const old = S.vocab.find((w) => w.word === word);
     const w = old ? { ...old } : { id: uid('u'), word, roman: '', ipa: '', vi: '', en: '', pos: '', hanja: '', def: '', ex: '', exVi: '', syn: '', ant: '', rel: '', col: '', notes: '', level: 1, topic: '', cats: ['my'], fav: false, created: Date.now() };

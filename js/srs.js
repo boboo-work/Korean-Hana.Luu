@@ -1,5 +1,5 @@
 // Lặp lại ngắt quãng theo SM-2 (SuperMemo 2), 4 mức đánh giá ánh xạ sang chất lượng q = 1, 3, 4, 5.
-import { S, dayStr, addDays, saveCard, logReview } from './store.js';
+import { S, dayStr, addDays, saveCard, logReview, freshCard } from './store.js';
 
 export const RATINGS = [
   { q: 1, label: 'Quên hoàn toàn', cls: 'r0' },
@@ -20,9 +20,10 @@ export function schedule(card, q, today = dayStr()) {
     c.ef = Math.max(1.3, c.ef - 0.2);
     c.due = today; // ôn lại ngay trong ngày
   } else {
+    // "Rất dễ" luôn cho chu kỳ dài hơn "Đã nhớ" (thưởng 30%), "Khó nhớ" ngắn hơn.
     if (c.reps === 0) c.iv = q === 5 ? 3 : 1;
-    else if (c.reps === 1) c.iv = q === 3 ? 3 : 6;
-    else c.iv = Math.max(c.iv + 1, Math.round(c.iv * (q === 3 ? 1.2 : c.ef)));
+    else if (c.reps === 1) c.iv = q === 3 ? 3 : q === 5 ? 8 : 6;
+    else c.iv = Math.max(c.iv + 1, Math.round(c.iv * (q === 3 ? 1.2 : q === 5 ? c.ef * 1.3 : c.ef)));
     c.reps += 1;
     c.ef = Math.max(1.3, c.ef + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)));
     c.due = addDays(today, c.iv);
@@ -33,7 +34,8 @@ export function schedule(card, q, today = dayStr()) {
 }
 
 export async function rate(key, q, mode) {
-  const old = S.srs[key] || newCard(key);
+  // Đọc lại thẻ từ DB để không ghi đè tiến độ do tab khác vừa lưu.
+  const old = (await freshCard(key)) || S.srs[key] || newCard(key);
   const isNew = !old.first;
   const card = schedule(old, q);
   await saveCard(card);
