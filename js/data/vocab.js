@@ -56,7 +56,7 @@ const ROWS = [
   ['알다', 'alda', 'biết', 'to know', Vb, '', '그 사람을 잘 {알아요}.', 'Tôi biết rõ người đó.', 1, 'Nhận thức', B, { ant: '모르다' }],
   ['모르다', 'moreuda', 'không biết', 'to not know', Vb, '', '저는 그 사실을 {몰랐어요}.', 'Tôi đã không biết sự thật đó.', 1, 'Nhận thức', B, { ant: '알다', notes: 'Bất quy tắc 르: 몰라요.' }],
   ['돕다', 'dopda', 'giúp đỡ', 'to help', Vb, '', '친구의 이사를 {도왔어요}.', 'Tôi đã giúp bạn chuyển nhà.', 1, 'Hành động', B, { notes: 'Bất quy tắc ㅂ: 도와요 (không phải 도워요).' }],
-  ['있다', 'itda', 'có; ở', 'to exist, to have', A, '', '교실에 학생이 {있어요}.', 'Trong lớp có học sinh.', 1, 'Trạng thái', B, { ant: '없다', notes: 'Kính ngữ: 계시다 (ở), 있으시다 (có).' }],
+  ['있다', 'itda', 'có; ở', 'to exist, to have', A, '', '교실에 학생이 {있어요}.', 'Trong lớp có học sinh.', 1, 'Trạng thái', B, { ant: '없다', notes: 'Nghĩa “có, tồn tại” là tính từ; nghĩa “ở lại” là động từ. Kính ngữ: 계시다 (ở), 있으시다 (có).' }],
   ['없다', 'eopda', 'không có', 'to not exist', A, '', '지갑에 돈이 {없어요}.', 'Trong ví không có tiền.', 1, 'Trạng thái', B, { ant: '있다' }],
   ['좋다', 'jota', 'tốt, hay; thích', 'good', A, '', '이 노래가 정말 {좋아요}.', 'Bài hát này hay thật.', 1, 'Tính chất', B, { ant: '나쁘다, 싫다', notes: 'N이/가 좋다 (tôi thích N) ≠ N을/를 좋아하다.' }],
   ['크다', 'keuda', 'to, lớn', 'big', A, '', '그 가방은 너무 {커요}.', 'Cái túi đó to quá.', 1, 'Tính chất', B, { ant: '작다', col: '키가 크다' }],
