@@ -66,9 +66,15 @@ export function viewPractice(root) {
     <div class="card">
       <label class="field" style="margin:0"><span>Nguồn từ vựng</span><select class="input" id="src">${opts.map(([v, l]) => `<option value="${esc(v)}" ${v === source ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>
       <label class="row" style="margin-top:12px"><input type="checkbox" id="rom" ${S.settings.showRoman ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--accent)"><span>Hiện phiên âm Latin trên thẻ</span></label>
+      <label class="row" style="margin-top:12px"><input type="checkbox" id="aus" ${S.settings.autoSpeak !== false ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--accent)"><span>Tự đọc từ khi lật thẻ</span></label>
     </div>
     <div class="sec">Chế độ học</div>
     <div class="grid2">${MODES.map(([id, name, desc, n]) => `<button class="mode" data-act="start" data-m="${id}"><em>${n}</em><b>${name}</b><span>${desc}</span></button>`).join('')}</div>
+    <div class="sec">Trò chơi</div>
+    <div class="grid2">
+      <button class="tool" data-act="nav" data-to="#/game-run">${icon('play')}Chạy & Gõ<span>Gõ đúng từ để nhảy qua chướng ngại vật</span></button>
+      <button class="tool" data-act="nav" data-to="#/game-drop">${icon('star')}Bắn Từ<span>Gõ trước khi khung chữ rơi chạm đất</span></button>
+    </div>
     <div class="sec">Công cụ</div>
     <div class="grid2">
       <button class="tool" data-act="nav" data-to="#/conjugate">${icon('swap')}Chia động từ<span>Động từ & tính từ, kèm bất quy tắc</span></button>
@@ -76,6 +82,7 @@ export function viewPractice(root) {
     </div>`;
   $('#src', root).onchange = (e) => { source = e.target.value; };
   $('#rom', root).onchange = (e) => setSetting('showRoman', e.target.checked);
+  $('#aus', root).onchange = (e) => setSetting('autoSpeak', e.target.checked);
   bind(root, { start: (el) => start(el.dataset.m), nav: (el) => go(el.dataset.to) });
 }
 
@@ -220,7 +227,8 @@ export function viewSession(root) {
     it._init = () => attachCard(root, st, () => {
       const card = $('#card', root); const on = card.classList.toggle('on');
       card.setAttribute('aria-label', `Thẻ từ vựng, đang ở mặt ${on ? 'sau' : 'trước'}. Nhấn Enter để lật, phím mũi tên để đánh giá.`);
-      if (!st.flipped) { st.flipped = true; finish(null); if (mode === 'vi-ko') speak(w.word); }
+      if (on && S.settings.autoSpeak !== false) speak(w.word); // tự đọc từ mỗi lần lật sang mặt sau
+      if (!st.flipped) { st.flipped = true; finish(null); }
     }, doRate);
   } else if (mode === 'listen' || mode === 'spell') {
     const prompt = mode === 'listen'
