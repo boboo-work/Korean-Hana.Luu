@@ -43,6 +43,16 @@ export async function rate(key, q, mode) {
   return card;
 }
 
+// Kết quả từ mini game: đúng thì chỉ xếp lịch lại nếu từ đang đến hạn; sai thì kéo từ về danh sách ôn hôm nay.
+export async function gameAnswer(key, ok) {
+  const old = (await freshCard(key)) || S.srs[key];
+  if (!old || !old.first) return;
+  const today = dayStr();
+  if (old.due <= today) await saveCard(schedule(old, ok ? 4 : 1));
+  else if (!ok) await saveCard({ ...old, due: today });
+  await logReview({ t: Date.now(), day: today, key, q: ok ? 4 : 1, mode: 'game', isNew: false });
+}
+
 export const isDue = (c, today = dayStr()) => c && c.first && c.due <= today;
 
 // Từ đến hạn: từ khó (hay quên, EF thấp) được xếp trước.

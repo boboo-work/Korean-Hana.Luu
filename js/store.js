@@ -3,7 +3,7 @@ import { SEED_VOCAB, SEED_CATS } from './data/vocab.js';
 import { SEED_GRAMMAR } from './data/grammar.js';
 
 export const DEFAULTS = {
-  theme: 'auto', showRoman: true,
+  theme: 'auto', showRoman: true, autoSpeak: true,
   newPerDay: 10, reviewPerDay: 20, grammarPerWeek: 10,
   voiceURI: '', aiProvider: 'anthropic', aiKey: '', aiModel: 'claude-opus-5-5',
 };

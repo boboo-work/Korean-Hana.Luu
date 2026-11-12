@@ -6,10 +6,11 @@ import { viewVocabList, viewVocabDetail, viewVocabEdit, viewCats } from './views
 import { viewGrammarList, viewGrammarDetail, viewGrammarEdit, viewCompare } from './views/grammar.js';
 import { viewPractice, viewSession } from './views/practice.js';
 import { viewConjugate, viewListen, viewTutor } from './views/tools.js';
+import { viewRun, viewDrop } from './views/games.js';
 
 const TABS = [['home', 'Home', 'home'], ['vocab', 'Vocabulary', 'book'], ['grammar', 'Grammar', 'grammar'], ['practice', 'Practice', 'play'], ['stats', 'Statistics', 'chart']];
-const TAB_OF = { conjugate: 'practice', listen: 'practice', tutor: 'home', settings: 'home', cats: 'vocab' };
-const FULL = new Set(['session', 'tutor']);
+const TAB_OF = { 'game-run': 'practice', 'game-drop': 'practice', conjugate: 'practice', listen: 'practice', tutor: 'home', settings: 'home', cats: 'vocab' };
+const FULL = new Set(['session', 'tutor', 'game-run', 'game-drop']);
 
 const ROUTES = {
   home: viewHome, stats: viewStats, settings: viewSettings,
@@ -18,6 +19,7 @@ const ROUTES = {
   grammar: (root, [a, b]) => (a === 'edit' ? viewGrammarEdit(root, b) : a === 'compare' ? viewCompare(root, b) : a ? viewGrammarDetail(root, a) : viewGrammarList(root)),
   practice: viewPractice, session: viewSession,
   conjugate: viewConjugate, listen: viewListen, tutor: viewTutor,
+  'game-run': viewRun, 'game-drop': viewDrop,
 };
 
 export function applyTheme() {
