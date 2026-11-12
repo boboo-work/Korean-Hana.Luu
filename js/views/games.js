@@ -337,8 +337,8 @@ function drawRun(root) {
       <div class="g-top"><button class="iconbtn" data-act="quit" aria-label="Thoát">${icon('x')}</button><div class="g-hearts" aria-label="Số mạng">${hearts()}</div><div class="g-score"><b>${G.score}</b><small>Kỷ lục ${G.best}</small></div></div>
       <div class="g-stage" data-act="focus"><i class="g-cloud c1"></i><i class="g-cloud c2"></i><div class="g-hero">${(HEROES[G.hero] || HEROES.mochi).svg}</div><div class="g-obs"></div><div class="g-ground"></div>${overlay}</div>
       <div class="g-prompt" data-act="focus"><p class="g-meaning"></p><span class="tag g-pos" hidden></span><div class="g-slots ko"></div><p class="g-note"></p></div>
-      <div class="g-actions"><button class="btn sm g-skip" data-act="skip">Không biết · xem đáp án</button></div>
-      ${inputHtml}</div>`;
+      <div class="g-dock"><div class="g-actions"><button class="btn sm g-skip" data-act="skip">Không biết · xem đáp án</button></div>
+      ${inputHtml}</div></div>`;
     root.onpointerdown = (e) => { if (e.target.closest('.g-skip, .g-stage, .g-prompt')) e.preventDefault(); }; // chạm vào game không làm ẩn bàn phím
     bind(root, {
       quit, focus: () => { if (G.paused) resume(); else q('#gi').focus({ preventScroll: true }); }, resume,
@@ -488,8 +488,8 @@ function drawDrop(root) {
       <div class="g-top"><button class="iconbtn" data-act="quit" aria-label="Thoát">${icon('x')}</button><div class="d-time"><i></i></div><div class="g-score"><b class="d-count">0/${D.total}</b><small>đã bắn trúng</small></div></div>
       <div class="d-stage" data-act="focus"><p class="d-meaning"></p><div class="d-tile"></div><div class="d-badge">정답!</div><div class="d-answer" hidden></div>
         <div class="g-hero d-mochi">${HEROES.mochi.svg}</div><div class="g-hero d-bolt">${HEROES.bolt.svg}<span class="d-hammer">${HAMMER}</span></div><div class="g-ground"></div>${overlay}</div>
-      <div class="g-actions"><button class="btn sm g-skip" data-act="skip">Không biết · xem đáp án</button></div>
-      ${inputHtml}</div>`;
+      <div class="g-dock"><div class="g-actions"><button class="btn sm g-skip" data-act="skip">Không biết · xem đáp án</button></div>
+      ${inputHtml}</div></div>`;
     root.onpointerdown = (e) => { if (e.target.closest('.g-skip, .d-stage')) e.preventDefault(); };
     bind(root, {
       quit, resume,

@@ -234,10 +234,10 @@ export function viewSession(root) {
     const prompt = mode === 'listen'
       ? `<div class="card fc" style="min-height:190px"><button class="btn primary" data-act="say" data-t="${esc(w.word)}">${icon('sound')} Nghe</button><button class="btn sm" data-act="say" data-slow="1" data-t="${esc(w.word)}">Nghe chậm</button><div class="hint">Nghe rồi gõ lại từ bằng Hangul</div></div>`
       : `<div class="card fc" style="min-height:190px"><div class="big vi">${esc(w.vi)}</div>${w.en ? `<div class="muted">${esc(w.en)}</div>` : ''}<span class="tag">${esc(w.pos || '')}</span><div class="hint">Gõ từ tiếng Hàn tương ứng</div></div>`;
-    body = `${prompt}<form id="ans" class="row" style="margin-top:12px"><input class="input ko grow" id="inp" lang="ko" placeholder="한글로 입력" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Câu trả lời"><button class="btn primary">Kiểm tra</button></form>
-      <button class="btn ghost block" data-act="giveup" style="margin-top:6px">Không biết – xem đáp án</button>`;
+    body = `${prompt}<div class="ans-dock" id="dock"><form id="ans" class="row"><input class="input ko grow" id="inp" lang="ko" placeholder="한글로 입력" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Câu trả lời"><button class="btn primary">Kiểm tra</button></form>
+      <button class="btn ghost block" data-act="giveup" style="margin-top:6px">Không biết – xem đáp án</button></div>`;
     after = (ok) => verdict(ok, ok ? '' : `đáp án: ${esc(w.word)}`) + backHtml(w);
-    const done = (ok) => { if (st.answered) return; $('#inp', root).disabled = true; finish(ok); };
+    const done = (ok) => { if (st.answered) return; $('#inp', root).disabled = true; $('#dock', root)?.classList.add('done'); finish(ok); };
     handlers.giveup = () => done(false);
     it._submit = () => { const v = $('#inp', root).value; if (!v.trim()) return; done(norm(v) === norm(w.word)); };
   } else if (mode === 'mc' || mode === 'blank') {

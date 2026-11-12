@@ -4,6 +4,7 @@ import { speak, koVoices, onVoices, ttsSupported } from '../tts.js';
 import { status } from '../srs.js';
 import { todayQueue, startToday } from './practice.js';
 import { MODELS } from '../ai.js';
+import { applyTheme, ACCENTS } from '../theme.js';
 
 const goalRow = (label, cur, max) => { const p = Math.min(100, max ? (cur / max) * 100 : 0); return `<div class="goal"><div class="row"><span>${label}</span><span class="muted">${cur}/${max}</span></div><div class="bar"><i class="${p >= 100 ? 'done' : ''}" style="width:${p}%"></i></div></div>`; };
 
@@ -93,6 +94,8 @@ export function viewSettings(root) {
   root.innerHTML = header('Cài đặt', { back: '#/home' }) + `
     <div class="sec">Giao diện</div>
     <div class="seg">${[['auto', 'Theo hệ thống'], ['light', 'Sáng'], ['dark', 'Tối']].map(([k, l]) => `<button class="${s.theme === k ? 'on' : ''}" data-act="theme" data-k="${k}">${l}</button>`).join('')}</div>
+    <div class="sec">Màu chủ đạo</div>
+    <div class="swatches" role="radiogroup" aria-label="Màu chủ đạo">${ACCENTS.map((a) => `<button class="swatch ${(s.accent || 'navy') === a.id ? 'on' : ''}" role="radio" aria-checked="${(s.accent || 'navy') === a.id}" data-act="accent" data-k="${a.id}"><i style="background:linear-gradient(135deg, ${a.sw[0]} 50%, ${a.sw[1]} 50%)"></i><span>${a.name}</span></button>`).join('')}</div>
     <div class="sec">Mục tiêu học tập</div>
     <div class="card">${num('newPerDay', 'Số từ mới mỗi ngày', 1, 100)}${num('reviewPerDay', 'Số lượt ôn tập mỗi ngày', 1, 500)}${num('grammarPerWeek', 'Số cấu trúc ngữ pháp mỗi tuần', 1, 50)}</div>
     <div class="sec">Giọng đọc tiếng Hàn</div>
@@ -127,16 +130,18 @@ export function viewSettings(root) {
   };
   if (!voices.length) onVoices(() => { if (location.hash.startsWith('#/settings')) viewSettings(root); });
   bind(root, {
-    theme: async (el) => { await setSetting('theme', el.dataset.k); if (el.dataset.k === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = el.dataset.k; viewSettings(root); },
+    // Đổi màu ngay lập tức; việc ghi vào IndexedDB chạy song song (setSetting cập nhật bộ nhớ trước khi ghi).
+    theme: async (el) => { const w = setSetting('theme', el.dataset.k); applyTheme(); viewSettings(root); await w; },
+    accent: async (el) => { const w = setSetting('accent', el.dataset.k); applyTheme(); viewSettings(root); await w; },
     test: () => speak('안녕하세요. 만나서 반갑습니다.'), testslow: () => speak('안녕하세요. 만나서 반갑습니다.', { slow: true }),
     backup: () => download(`korean-vocab-master-${dayStr()}.json`, JSON.stringify(exportBackup()), 'application/json'),
     restore: async () => {
       const f = await pickFile('.json,application/json'); if (!f) return;
       let data; try { data = JSON.parse(f.text); } catch { return toast('Tệp không phải JSON hợp lệ'); }
       confirmSheet(`Khôi phục sẽ thay thế toàn bộ dữ liệu hiện tại bằng bản sao lưu (${(data.vocab || []).length} từ). Tiếp tục?`, 'Khôi phục', async () => {
-        try { await importBackup(data); toast('Đã khôi phục dữ liệu'); viewSettings(root); } catch (e) { toast(e.message); }
+        try { await importBackup(data); applyTheme(); toast('Đã khôi phục dữ liệu'); viewSettings(root); } catch (e) { toast(e.message); }
       });
     },
-    reset: () => confirmSheet('Xóa toàn bộ từ vựng, ngữ pháp, lịch sử học và cài đặt, rồi nạp lại dữ liệu mẫu? Không thể hoàn tác.', 'Xóa toàn bộ', async () => { await resetAll(); delete document.documentElement.dataset.theme; toast('Đã đặt lại dữ liệu'); go('#/home'); }),
+    reset: () => confirmSheet('Xóa toàn bộ từ vựng, ngữ pháp, lịch sử học và cài đặt, rồi nạp lại dữ liệu mẫu? Không thể hoàn tác.', 'Xóa toàn bộ', async () => { await resetAll(); applyTheme(); toast('Đã đặt lại dữ liệu'); go('#/home'); }),
   });
 }
