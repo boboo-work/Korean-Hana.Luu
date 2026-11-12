@@ -43,13 +43,15 @@ export async function rate(key, q, mode) {
   return card;
 }
 
-// Kết quả từ mini game: đúng thì chỉ xếp lịch lại nếu từ đang đến hạn; sai thì kéo từ về danh sách ôn hôm nay.
+// Kết quả từ mini game (chỉ lần gặp đầu của mỗi từ trong lượt chơi):
+// - Đúng: chỉ xếp lịch lại nếu từ đang đến hạn ôn (như một lần "Đã nhớ").
+// - Sai / hết giờ: KHÔNG đặt lại chu kỳ (hết giờ có thể chỉ do gõ chậm); chỉ kéo từ về danh sách ôn hôm nay.
 export async function gameAnswer(key, ok) {
   const old = (await freshCard(key)) || S.srs[key];
   if (!old || !old.first) return;
   const today = dayStr();
-  if (old.due <= today) await saveCard(schedule(old, ok ? 4 : 1));
-  else if (!ok) await saveCard({ ...old, due: today });
+  if (ok) { if (old.due <= today) await saveCard(schedule(old, 4)); }
+  else if (old.due > today) await saveCard({ ...old, due: today });
   await logReview({ t: Date.now(), day: today, key, q: ok ? 4 : 1, mode: 'game', isNew: false });
 }
 
