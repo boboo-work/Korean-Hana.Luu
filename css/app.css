@@ -264,7 +264,7 @@ table.cmp td:first-child { color: var(--muted); font-weight: 650; width: 26%; }
 .g-kb:focus-within .g-kb-l.off { display: none; }
 .g-kb:focus-within .g-kb-l.on { display: flex; }
 .g-kb:focus-within .g-input { border-color: var(--accent); }
-.g-row { display: flex; gap: 8px; align-items: center; flex: none; margin-top: 8px; }
+.g-row { display: flex; gap: 8px; align-items: center; flex: none; margin: 0 0 10px; }
 .g-row .g-kb { flex: 1; min-width: 0; }
 .g-row .g-skip { flex: none; min-height: 48px; }
 .g-row .g-skip[hidden] { display: inline-flex; visibility: hidden; }
