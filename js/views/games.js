@@ -172,7 +172,7 @@ function resolve(w, typed) {
 
 // Ô nhập dùng chung cho hai game. Chữ trong ô được ẩn (người chơi nhìn các ô chữ phía trên); nhãn cho biết trạng thái bàn phím.
 const inputHtml = `<div class="g-kb"><input class="input ko g-input" id="gi" type="text" lang="ko" inputmode="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" aria-label="Gõ từ tiếng Hàn"><span class="g-kb-l off" aria-hidden="true">⌨ Chạm để gõ tiếng Hàn</span><span class="g-kb-l on" aria-hidden="true">⌨ Đang gõ…</span></div>`;
-function wireInput(root, state, onType, onBlur) {
+function wireInput(root, state, onType, onBlur, onFocus) {
   const el = $('#gi', root);
   state.used = ''; state.composing = false;
   el.addEventListener('compositionstart', () => { state.composing = true; });
@@ -186,6 +186,7 @@ function wireInput(root, state, onType, onBlur) {
     onType(el);
   });
   el.addEventListener('blur', () => setTimeout(onBlur, 150)); // bàn phím bị ẩn → tạm dừng, chờ người chơi chạm tiếp
+  el.addEventListener('focus', () => onFocus && onFocus()); // chạm thẳng vào ô nhập khi đang tạm dừng → chơi tiếp
   return el;
 }
 const consume = (state, el) => { state.used = el.value.normalize('NFC'); };
@@ -335,16 +336,16 @@ function drawRun(root) {
   if (G && G.phase === 'play') {
     root.innerHTML = `<div class="game">
       <div class="g-top"><button class="iconbtn" data-act="quit" aria-label="Thoát">${icon('x')}</button><div class="g-hearts" aria-label="Số mạng">${hearts()}</div><div class="g-score"><b>${G.score}</b><small>Kỷ lục ${G.best}</small></div></div>
+      <div class="g-row"><button class="btn sm g-skip" data-act="skip">Không biết</button>${inputHtml}</div>
       <div class="g-stage" data-act="focus"><i class="g-cloud c1"></i><i class="g-cloud c2"></i><div class="g-hero">${(HEROES[G.hero] || HEROES.mochi).svg}</div><div class="g-obs"></div><div class="g-ground"></div>${overlay}</div>
-      <div class="g-prompt" data-act="focus"><p class="g-meaning"></p><span class="tag g-pos" hidden></span><div class="g-slots ko"></div><p class="g-note"></p></div>
-      <div class="g-row"><button class="btn sm g-skip" data-act="skip">Không biết</button>${inputHtml}</div></div>`;
+      <div class="g-prompt" data-act="focus"><p class="g-meaning"></p><span class="tag g-pos" hidden></span><div class="g-slots ko"></div><p class="g-note"></p></div></div>`;
     lockBounce(root);
     root.onpointerdown = (e) => { if (e.target.closest('.g-skip, .g-stage, .g-prompt')) e.preventDefault(); }; // chạm vào game không làm ẩn bàn phím
     bind(root, {
       quit, focus: () => { if (G.paused) resume(); else q('#gi').focus({ preventScroll: true }); }, resume,
       skip: () => { if (G && G.phase === 'play' && G.mode === 'run') { G.paused = false; q('.g-pause').hidden = true; miss(); } },
     });
-    const el = wireInput(root, G, onType, onBlur);
+    const el = wireInput(root, G, onType, onBlur, () => { if (G && G.paused) resume(); });
     el.focus({ preventScroll: true }); // focus ngay trong lượt chạm để iOS bật bàn phím
     showWord();
     cancelAnimationFrame(G.raf); G.raf = requestAnimationFrame(frame);
@@ -488,9 +489,9 @@ function drawDrop(root) {
   if (D && D.phase === 'play') {
     root.innerHTML = `<div class="game">
       <div class="g-top"><button class="iconbtn" data-act="quit" aria-label="Thoát">${icon('x')}</button><div class="d-time"><i></i></div><div class="g-score"><b class="d-count">0/${D.total}</b><small>đã bắn trúng</small></div></div>
+      <div class="g-row"><button class="btn sm g-skip" data-act="skip">Không biết</button>${inputHtml}</div>
       <div class="d-stage" data-act="focus"><p class="d-meaning"></p><div class="d-tile"></div><div class="d-badge">정답!</div><div class="d-answer" hidden></div>
-        <div class="g-hero d-mochi">${HEROES.mochi.svg}</div><div class="g-hero d-bolt">${HEROES.bolt.svg}<span class="d-hammer">${HAMMER}</span></div><div class="g-ground"></div>${overlay}</div>
-      <div class="g-row"><button class="btn sm g-skip" data-act="skip">Không biết</button>${inputHtml}</div></div>`;
+        <div class="g-hero d-mochi">${HEROES.mochi.svg}</div><div class="g-hero d-bolt">${HEROES.bolt.svg}<span class="d-hammer">${HAMMER}</span></div><div class="g-ground"></div>${overlay}</div></div>`;
     lockBounce(root);
     root.onpointerdown = (e) => { if (e.target.closest('.g-skip, .d-stage')) e.preventDefault(); };
     bind(root, {
@@ -502,7 +503,7 @@ function drawDrop(root) {
       },
       skip: () => { if (D && D.phase === 'play' && D.mode === 'fall') { D.paused = false; q('.g-pause').hidden = true; wrong(); } },
     });
-    const el = wireInput(root, D, onType, onBlur);
+    const el = wireInput(root, D, onType, onBlur, () => { if (D && D.paused) resume(); });
     el.focus({ preventScroll: true });
     showWord();
     D.raf = requestAnimationFrame(frame);
