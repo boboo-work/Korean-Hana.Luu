@@ -1,6 +1,8 @@
 :root {
   --bg: #FAF6EE; --surface: #FFFFFF; --surface2: #F3EDE1; --line: #E8DFCF;
-  --text: #1B2438; --muted: #5D6475; --navy: #1F2D4D; --accent: #3D5A98; --pastel: #DCE6F7; --on-accent: #FFFFFF;
+  --pn-l: #1F2D4D; --pa-l: #3D5A98; --pp-l: #DCE6F7; --pn-d: #DCE6F7; --pa-d: #8FB0F0; --pp-d: #26324D;
+  --vvh: 100dvh; --vvt: 0px;
+  --text: #1B2438; --muted: #5D6475; --navy: var(--pn-l); --accent: var(--pa-l); --pastel: var(--pp-l); --on-accent: #FFFFFF;
   --good: #1F7450; --warn: #8A5A00; --bad: #B23A35; --easy: #3D5A98;
   --shadow: 0 1px 2px rgba(31,45,77,.06), 0 6px 20px rgba(31,45,77,.06);
   --r: 18px; --tab-h: 62px;
@@ -9,18 +11,26 @@
 }
 :root[data-theme="dark"] {
   --bg: #11151F; --surface: #1A2030; --surface2: #232B3F; --line: #2C3549;
-  --text: #EEF1F7; --muted: #9AA3B8; --navy: #DCE6F7; --accent: #8FB0F0; --pastel: #26324D; --on-accent: #10172A;
+  --text: #EEF1F7; --muted: #9AA3B8; --navy: var(--pn-d); --accent: var(--pa-d); --pastel: var(--pp-d); --on-accent: #10172A;
   --good: #5CC39B; --warn: #E3B04B; --bad: #EC8580; --easy: #8FB0F0;
   --shadow: 0 1px 2px rgba(0,0,0,.3);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #11151F; --surface: #1A2030; --surface2: #232B3F; --line: #2C3549;
-    --text: #EEF1F7; --muted: #9AA3B8; --navy: #DCE6F7; --accent: #8FB0F0; --pastel: #26324D; --on-accent: #10172A;
+    --text: #EEF1F7; --muted: #9AA3B8; --navy: var(--pn-d); --accent: var(--pa-d); --pastel: var(--pp-d); --on-accent: #10172A;
     --good: #5CC39B; --warn: #E3B04B; --bad: #EC8580; --easy: #8FB0F0;
     --shadow: 0 1px 2px rgba(0,0,0,.3);
   }
 }
+/* Màu chủ đạo: mỗi bộ chỉ đổi 6 biến (đậm/nhấn/nhạt cho sáng và tối); mặc định là navy. */
+:root[data-accent="ocean"] { --pn-l: #0B3C5D; --pa-l: #18629A; --pp-l: #D5E8F5; --pn-d: #D3E8F7; --pa-d: #7DBDEA; --pp-d: #1B3347; }
+:root[data-accent="teal"] { --pn-l: #0F4C4A; --pa-l: #10685F; --pp-l: #D2EEEC; --pn-d: #D0EEEC; --pa-d: #6DCFC9; --pp-d: #15383A; }
+:root[data-accent="forest"] { --pn-l: #1E4D3A; --pa-l: #2A7550; --pp-l: #D8EFE3; --pn-d: #D6EFE1; --pa-d: #7ACB9D; --pp-d: #1C3A2C; }
+:root[data-accent="violet"] { --pn-l: #3B2A66; --pa-l: #6246B5; --pp-l: #E4DCF7; --pn-d: #E6DEF8; --pa-d: #B3A0F0; --pp-d: #2D2750; }
+:root[data-accent="rose"] { --pn-l: #6B2040; --pa-l: #B02F68; --pp-l: #F8DAE6; --pn-d: #F8DDE8; --pa-d: #F08FB5; --pp-d: #46202F; }
+:root[data-accent="terracotta"] { --pn-l: #5C2E12; --pa-l: #A8480F; --pp-l: #F7DFCF; --pn-d: #F6E1D2; --pa-d: #F2A272; --pp-d: #43281A; }
+:root[data-accent="graphite"] { --pn-l: #262B33; --pa-l: #4B5563; --pp-l: #E3E6EB; --pn-d: #E5E8EE; --pa-d: #AEB8C8; --pp-d: #2A313C; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 var(--ui); overscroll-behavior-y: none; }
@@ -33,7 +43,19 @@ button { cursor: pointer; border: 0; background: none; padding: 0; }
 .ic { width: 22px; height: 22px; flex: none; }
 
 #view { overflow-wrap: anywhere; max-width: 560px; margin: 0 auto; min-height: 100dvh; padding: 0 16px calc(var(--tab-h) + env(safe-area-inset-bottom) + 28px); outline: none; }
-body.full #view { padding-bottom: calc(env(safe-area-inset-bottom) + 24px); }
+/* Màn hình toàn khung (phiên học, game, gia sư): cố định đúng vào vùng nhìn thấy thật nên bàn phím không đẩy hay che nội dung. */
+body.full { overflow: hidden; }
+body.full #view { position: fixed; top: var(--vvt); left: 0; right: 0; margin: 0 auto; height: var(--vvh); min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-bottom: calc(env(safe-area-inset-bottom) + 24px); }
+body.full.kb #view { padding-bottom: 8px; }
+body.kb .tabbar, body.kb .fab { display: none; }
+.ans-dock { position: sticky; bottom: 0; z-index: 3; background: var(--bg); margin-top: 8px; padding: 10px 0 calc(env(safe-area-inset-bottom) + 8px); }
+body.kb .ans-dock { padding-bottom: 8px; }
+.ans-dock.done { display: none; }
+.g-dock { position: sticky; bottom: 0; z-index: 3; margin-top: auto; background: var(--bg); padding-top: 4px; padding-bottom: env(safe-area-inset-bottom); }
+body.kb .g-dock { padding-bottom: 6px; }
+.game { min-height: calc(var(--vvh) - env(safe-area-inset-bottom) - 28px); }
+body.kb .g-stage { height: 116px; } body.kb .d-stage { height: 190px; margin-bottom: 8px; }
+body.kb .g-prompt { padding: 8px 4px 6px; } body.kb .g-slots { margin-top: 6px; } body.kb .g-note { margin-top: 6px; } body.kb .game .g-top { margin-bottom: 6px; }
 body.full .tabbar { display: none; }
 .boot { display: grid; place-items: center; height: 80dvh; font: 600 22px var(--ko); color: var(--navy); }
 
@@ -297,6 +319,12 @@ table.cmp td:first-child { color: var(--muted); font-weight: 650; width: 26%; }
 .d-duo { display: flex; justify-content: center; gap: 18px; margin-bottom: 14px; }
 .d-duo .g-hero svg, .d-duo .g-hero .leg { animation: none; }
 canvas.confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; }
+
+/* Ô chọn màu chủ đạo trong Cài đặt */
+.swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.swatch { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 2px 8px; min-height: 44px; border-radius: 14px; border: 2px solid transparent; background: var(--surface); font-size: 12px; font-weight: 650; color: var(--muted); text-align: center; line-height: 1.2; }
+.swatch i { width: 34px; height: 34px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,.14); }
+.swatch.on { border-color: var(--accent); color: var(--navy); }
 
 /* Chia động từ */
 .cj h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 6px; }
