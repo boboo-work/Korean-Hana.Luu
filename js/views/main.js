@@ -62,7 +62,7 @@ const chart = (data, k) => { const max = Math.max(1, ...data.map((d) => d[k])); 
 export function viewStats(root) {
   const sts = S.vocab.map((w) => status('v:' + w.id));
   const learned = sts.filter((s) => s !== 'new').length, mastered = sts.filter((s) => s === 'mastered').length;
-  const graded = S.reviews.filter((r) => r.key[0] === 'v');
+  const graded = S.reviews.filter((r) => r.key[0] === 'v' && r.mode !== 'game'); // game không đo trí nhớ: hết giờ có thể chỉ do gõ chậm
   const acc = graded.length ? Math.round((graded.filter((r) => r.q >= 3).length / graded.length) * 100) : null;
   const hard = S.vocab.map((w) => ({ w, c: S.srs['v:' + w.id] })).filter((x) => x.c && x.c.lapses > 0).sort((a, b) => b.c.lapses - a.c.lapses || a.c.ef - b.c.ef).slice(0, 8);
   const data = buckets();
