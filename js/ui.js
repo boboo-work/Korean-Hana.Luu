@@ -78,6 +78,20 @@ export function confirmSheet(msg, okLabel, onOk, danger = true) {
     <button class="btn ghost block" data-act="close">Hủy</button>`, { ok: (el, close) => { close(); onOk(); } });
 }
 
+/** Chặn "vuốt rung" của cả trang trên màn hình khóa (game): chỉ cho phép cuộn bên trong vùng .scroll,
+ *  và không để cuộn lan ra ngoài khi chạm biên trên/dưới của vùng đó. Chạm (tap) vẫn hoạt động bình thường. */
+export function lockBounce(root) {
+  let y0 = 0, sc = null;
+  root.ontouchstart = (e) => { y0 = e.touches[0].clientY; sc = e.target.closest ? e.target.closest('.scroll') : null; };
+  root.ontouchmove = (e) => {
+    const dy = e.touches[0].clientY - y0;
+    if (Math.abs(dy) < 4) return;                                   // rung nhẹ của ngón tay: giữ nguyên để không hủy cú chạm
+    if (!sc || !root.contains(sc)) return e.preventDefault();
+    const atTop = sc.scrollTop <= 0, atBottom = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 1;
+    if (sc.scrollHeight <= sc.clientHeight + 1 || (dy > 0 && atTop) || (dy < 0 && atBottom)) e.preventDefault();
+  };
+}
+
 export function download(filename, text, type = 'text/plain') {
   const url = URL.createObjectURL(new Blob([text], { type }));
   const a = document.createElement('a'); a.href = url; a.download = filename;

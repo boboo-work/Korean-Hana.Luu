@@ -1,7 +1,6 @@
 // Khởi động ứng dụng + bộ định tuyến theo hash.
 import { init, S, reload } from './store.js';
 import { applyTheme } from './theme.js';
-import { initViewport, syncViewport } from './viewport.js';
 import { $, esc, icon } from './ui.js';
 import { viewHome, viewStats, viewSettings } from './views/main.js';
 import { viewVocabList, viewVocabDetail, viewVocabEdit, viewCats } from './views/vocab.js';
@@ -13,6 +12,7 @@ import { viewRun, viewDrop } from './views/games.js';
 const TABS = [['home', 'Home', 'home'], ['vocab', 'Vocabulary', 'book'], ['grammar', 'Grammar', 'grammar'], ['practice', 'Practice', 'play'], ['stats', 'Statistics', 'chart']];
 const TAB_OF = { 'game-run': 'practice', 'game-drop': 'practice', conjugate: 'practice', listen: 'practice', tutor: 'home', settings: 'home', cats: 'vocab' };
 const FULL = new Set(['session', 'tutor', 'game-run', 'game-drop']);
+const LOCK = new Set(['game-run', 'game-drop']); // khung cố định, không cuộn cả trang
 
 const ROUTES = {
   home: viewHome, stats: viewStats, settings: viewSettings,
@@ -30,20 +30,19 @@ function render() {
   const [name = 'home', ...rest] = path.split('/').map(decodeURIComponent);
   const route = ROUTES[name] ? name : 'home';
   const root = $('#view');
-  root.onclick = root.oninput = root.onchange = root.onsubmit = null;
+  root.onclick = root.oninput = root.onchange = root.onsubmit = root.ontouchstart = root.ontouchmove = null;
   document.body.classList.toggle('full', FULL.has(route));
+  document.body.classList.toggle('locked', LOCK.has(route));
   const tab = TAB_OF[route] || route;
   $('#tabbar').innerHTML = TABS.map(([id, label, ic]) => `<a href="#/${id}" class="${id === tab ? 'on' : ''}" ${id === tab ? 'aria-current="page"' : ''}>${icon(ic)}<span>${esc(label)}</span></a>`).join('');
   window.speechSynthesis && window.speechSynthesis.cancel();
   ROUTES[route](root, rest.length ? rest : [], new URLSearchParams(query));
   window.scrollTo(0, 0);
   if (!root.contains(document.activeElement)) root.focus({ preventScroll: true }); // đưa focus vào màn hình mới
-  syncViewport();
 }
 
 init().then(() => {
   applyTheme();
-  initViewport();
   window.addEventListener('hashchange', render);
   // Quay lại tab: nạp lại dữ liệu từ DB (có thể tab khác vừa ghi). Không vẽ lại khi đang làm bài hoặc đang nhập liệu.
   document.addEventListener('visibilitychange', async () => {
