@@ -85,6 +85,7 @@ export function lockBounce(root) {
   root.ontouchstart = (e) => { y0 = e.touches[0].clientY; sc = e.target.closest ? e.target.closest('.scroll') : null; };
   root.ontouchmove = (e) => {
     const dy = e.touches[0].clientY - y0;
+    if (window.visualViewport && window.visualViewport.offsetTop > 1) return; // iOS đã đẩy trang lệch: để người dùng kéo trở lại
     if (Math.abs(dy) < 4) return;                                   // rung nhẹ của ngón tay: giữ nguyên để không hủy cú chạm
     if (!sc || !root.contains(sc)) return e.preventDefault();
     const atTop = sc.scrollTop <= 0, atBottom = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 1;
