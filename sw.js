@@ -1,11 +1,11 @@
 // Service worker: lưu sẵn toàn bộ ứng dụng để chạy ngoại tuyến.
 // Đổi VERSION mỗi lần phát hành để thiết bị tải bản mới.
-const VERSION = 'kvm-v6';
+const VERSION = 'kvm-v7';
 const ASSETS = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/app.js', 'js/store.js', 'js/srs.js', 'js/conjugate.js', 'js/ui.js', 'js/tts.js', 'js/csv.js', 'js/ai.js',
   'js/data/vocab.js', 'js/data/grammar.js',
-  'js/views/main.js', 'js/views/vocab.js', 'js/views/grammar.js', 'js/views/practice.js', 'js/views/tools.js', 'js/views/games.js', 'js/theme.js', 'js/viewport.js',
+  'js/views/main.js', 'js/views/vocab.js', 'js/views/grammar.js', 'js/views/practice.js', 'js/views/tools.js', 'js/views/games.js', 'js/theme.js',
   'icons/icon.svg', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
 ];
 self.addEventListener('install', (e) => e.waitUntil(caches.open(VERSION).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting())));
