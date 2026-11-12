@@ -5,7 +5,7 @@
 // Cách chọn từ ("vòng phủ"): mỗi từ đã học phải được chơi ít nhất một lần trước khi từ nào được chơi lần hai.
 // Thứ tự theo "lâu chưa chơi nhất"; từ đến hạn ôn / từ sai lần trước chỉ chiếm 1/3 số chỗ nên không chặn các từ còn lại.
 import { S, setSetting } from '../store.js';
-import { esc, $, go, bind, header, icon, shuffle } from '../ui.js';
+import { esc, $, go, bind, header, icon, shuffle, lockBounce } from '../ui.js';
 import { speak } from '../tts.js';
 import { gameAnswer, isDue } from '../srs.js';
 import { dec, isSyl } from '../conjugate.js';
@@ -171,7 +171,7 @@ function resolve(w, typed) {
 }
 
 // Ô nhập dùng chung cho hai game. Chữ trong ô được ẩn (người chơi nhìn các ô chữ phía trên); nhãn cho biết trạng thái bàn phím.
-const inputHtml = `<div class="g-kb"><input class="input ko g-input" id="gi" type="text" lang="ko" inputmode="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" aria-label="Gõ từ tiếng Hàn"><span class="g-kb-l off" aria-hidden="true">⌨ Chạm vào đây để gõ tiếng Hàn</span><span class="g-kb-l on" aria-hidden="true">⌨ Đang gõ — nhìn các ô chữ phía trên</span></div>`;
+const inputHtml = `<div class="g-kb"><input class="input ko g-input" id="gi" type="text" lang="ko" inputmode="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" aria-label="Gõ từ tiếng Hàn"><span class="g-kb-l off" aria-hidden="true">⌨ Chạm để gõ tiếng Hàn</span><span class="g-kb-l on" aria-hidden="true">⌨ Đang gõ…</span></div>`;
 function wireInput(root, state, onType, onBlur) {
   const el = $('#gi', root);
   state.used = ''; state.composing = false;
@@ -337,8 +337,8 @@ function drawRun(root) {
       <div class="g-top"><button class="iconbtn" data-act="quit" aria-label="Thoát">${icon('x')}</button><div class="g-hearts" aria-label="Số mạng">${hearts()}</div><div class="g-score"><b>${G.score}</b><small>Kỷ lục ${G.best}</small></div></div>
       <div class="g-stage" data-act="focus"><i class="g-cloud c1"></i><i class="g-cloud c2"></i><div class="g-hero">${(HEROES[G.hero] || HEROES.mochi).svg}</div><div class="g-obs"></div><div class="g-ground"></div>${overlay}</div>
       <div class="g-prompt" data-act="focus"><p class="g-meaning"></p><span class="tag g-pos" hidden></span><div class="g-slots ko"></div><p class="g-note"></p></div>
-      <div class="g-dock"><div class="g-actions"><button class="btn sm g-skip" data-act="skip">Không biết · xem đáp án</button></div>
-      ${inputHtml}</div></div>`;
+      <div class="g-row"><button class="btn sm g-skip" data-act="skip">Không biết</button>${inputHtml}</div></div>`;
+    lockBounce(root);
     root.onpointerdown = (e) => { if (e.target.closest('.g-skip, .g-stage, .g-prompt')) e.preventDefault(); }; // chạm vào game không làm ẩn bàn phím
     bind(root, {
       quit, focus: () => { if (G.paused) resume(); else q('#gi').focus({ preventScroll: true }); }, resume,
@@ -352,25 +352,27 @@ function drawRun(root) {
     return;
   }
   if (G && G.phase === 'over') {
-    root.innerHTML = header('Chạy & Gõ', { back: '#/practice' }) + `
-      <div class="card g-over"><div class="g-hero big hurt-still">${(HEROES[G.hero] || HEROES.mochi).svg}</div><p class="small muted" style="font-weight:700">${G.newBest ? 'KỶ LỤC MỚI!' : 'HẾT MẠNG'}</p><b class="g-final">${G.score}</b><p class="muted small">từ gõ đúng · kỷ lục ${Math.max(G.best, G.score)}</p><p class="small" style="margin-top:8px">${coverLine()}</p></div>
-      ${missedHtml(G.missed)}
-      <button class="btn primary block" style="margin-top:18px" data-act="cont">Chơi tiếp từ từ vừa trượt</button><button class="btn ghost block" style="margin-top:8px" data-act="quit">Thoát</button>`;
+    root.innerHTML = `<div class="gpage">${header('Chạy & Gõ', { back: '#/practice' })}
+      <div class="card g-over gfix"><div class="g-hero big hurt-still">${(HEROES[G.hero] || HEROES.mochi).svg}</div><p class="small muted" style="font-weight:700">${G.newBest ? 'KỶ LỤC MỚI!' : 'HẾT MẠNG'}</p><b class="g-final">${G.score}</b><p class="muted small">từ gõ đúng · kỷ lục ${Math.max(G.best, G.score)}</p><p class="small" style="margin-top:8px">${coverLine()}</p></div>
+      <div class="scroll">${missedHtml(G.missed)}</div>
+      <button class="btn primary block" data-act="cont">Chơi tiếp từ từ vừa trượt</button><button class="btn ghost block" data-act="quit">Thoát</button></div>`;
+    lockBounce(root);
     bind(root, { cont: () => begin(true), quit });
     return;
   }
   const n = gamePool().length;
-  root.innerHTML = header('Chạy & Gõ', { back: '#/practice', sub: '달리기 · 타자' }) + `
-    <div class="card"><p class="muted small" style="margin-bottom:10px">Chọn nhân vật</p>
+  root.innerHTML = `<div class="gpage">${header('Chạy & Gõ', { back: '#/practice', sub: '달리기 · 타자' })}
+    <div class="card gfix"><p class="muted small" style="margin-bottom:6px">Chọn nhân vật</p>
       <div class="g-pick">${Object.entries(HEROES).map(([id, h]) => `<button class="${p.hero === id ? 'on' : ''}" data-act="hero" data-hero="${id}" aria-pressed="${p.hero === id}"><span class="g-hero big">${h.svg}</span><b>${h.name}</b></button>`).join('')}</div></div>
-    <div class="card"><b>Cách chơi</b><ul class="g-rules">
+    <div class="card scroll"><b>Cách chơi</b><ul class="g-rules">
       <li>Màn hình hiện nghĩa tiếng Việt — gõ đúng từ tiếng Hàn để nhảy qua chướng ngại vật.</li>
       <li>Gõ nhầm cứ xóa và sửa. Chỉ mất mạng khi chướng ngại vật chạm tới mà chưa gõ xong, hoặc khi bấm “Không biết”.</li>
       <li>Bàn phím bị ẩn thì game tự tạm dừng; chạm màn hình để chơi tiếp.</li>
       <li>Có ${LIVES} mạng. Hết mạng, bạn chơi tiếp từ đúng từ vừa trượt.</li>
       <li>Mọi từ đã học lần lượt xuất hiện hết một vòng rồi mới lặp lại. Chỉ lần gặp đầu của mỗi từ được tính vào lịch ôn; trượt chỉ đưa từ vào danh sách ôn hôm nay, không đặt lại chu kỳ.</li></ul>
       <p class="muted small" style="margin-top:10px">Kỷ lục: <b>${p.best}</b> từ</p>${poolNote()}</div>
-    ${n >= GAME_MIN ? '<button class="btn primary block" style="margin-top:6px" data-act="start">Bắt đầu</button>' : notReady(n)}`;
+    ${n >= GAME_MIN ? '<button class="btn primary block" data-act="start">Bắt đầu</button>' : notReady(n)}</div>`;
+  lockBounce(root);
   bind(root, { start: () => begin(false), hero: async (el) => { await savePrefs({ hero: el.dataset.hero }); drawRun(root); }, learn: () => go('#/practice') });
 }
 
@@ -488,8 +490,8 @@ function drawDrop(root) {
       <div class="g-top"><button class="iconbtn" data-act="quit" aria-label="Thoát">${icon('x')}</button><div class="d-time"><i></i></div><div class="g-score"><b class="d-count">0/${D.total}</b><small>đã bắn trúng</small></div></div>
       <div class="d-stage" data-act="focus"><p class="d-meaning"></p><div class="d-tile"></div><div class="d-badge">정답!</div><div class="d-answer" hidden></div>
         <div class="g-hero d-mochi">${HEROES.mochi.svg}</div><div class="g-hero d-bolt">${HEROES.bolt.svg}<span class="d-hammer">${HAMMER}</span></div><div class="g-ground"></div>${overlay}</div>
-      <div class="g-dock"><div class="g-actions"><button class="btn sm g-skip" data-act="skip">Không biết · xem đáp án</button></div>
-      ${inputHtml}</div></div>`;
+      <div class="g-row"><button class="btn sm g-skip" data-act="skip">Không biết</button>${inputHtml}</div></div>`;
+    lockBounce(root);
     root.onpointerdown = (e) => { if (e.target.closest('.g-skip, .d-stage')) e.preventDefault(); };
     bind(root, {
       quit, resume,
@@ -508,23 +510,26 @@ function drawDrop(root) {
     return;
   }
   if (D && D.phase === 'over') {
-    root.innerHTML = header('Bắn Từ', { back: '#/practice' }) + `
-      <div class="card g-over"><p class="small muted" style="font-weight:700">${D.newBest ? 'KỶ LỤC MỚI!' : 'HOÀN THÀNH'}</p><b class="g-final">${D.total - D.missed.length}/${D.total}</b><p class="muted small">từ đúng ngay lần đầu · ${fmtTime(D.elapsed)}</p><p class="small" style="margin-top:8px">${coverLine()}</p></div>
-      ${missedHtml(D.missed)}
-      <button class="btn primary block" style="margin-top:18px" data-act="start">Chơi ván mới</button><button class="btn ghost block" style="margin-top:8px" data-act="quit">Thoát</button>`;
+    root.innerHTML = `<div class="gpage">${header('Bắn Từ', { back: '#/practice' })}
+      <div class="card g-over gfix"><p class="small muted" style="font-weight:700">${D.newBest ? 'KỶ LỤC MỚI!' : 'HOÀN THÀNH'}</p><b class="g-final">${D.total - D.missed.length}/${D.total}</b><p class="muted small">từ đúng ngay lần đầu · ${fmtTime(D.elapsed)}</p><p class="small" style="margin-top:8px">${coverLine()}</p></div>
+      <div class="scroll">${missedHtml(D.missed)}</div>
+      <button class="btn primary block" data-act="start">Chơi ván mới</button><button class="btn ghost block" data-act="quit">Thoát</button></div>`;
+    lockBounce(root);
     bind(root, { start, quit });
     return;
   }
   const n = gamePool().length, best = prefs().drop;
-  root.innerHTML = header('Bắn Từ', { back: '#/practice', sub: '단어 쏘기' }) + `
-    <div class="card"><div class="d-duo"><span class="g-hero big">${HEROES.mochi.svg}</span><span class="g-hero big">${HEROES.bolt.svg}</span></div><b>Cách chơi</b><ul class="g-rules">
+  root.innerHTML = `<div class="gpage">${header('Bắn Từ', { back: '#/practice', sub: '단어 쏘기' })}
+    <div class="d-duo gfix"><span class="g-hero big">${HEROES.mochi.svg}</span><span class="g-hero big">${HEROES.bolt.svg}</span></div>
+    <div class="card scroll"><b>Cách chơi</b><ul class="g-rules">
       <li>Nghĩa tiếng Việt hiện ở trên; khung chữ của từ rơi dần xuống trong khoảng 10–20 giây.</li>
       <li>Gõ đúng từ tiếng Hàn: Mochi bắn trúng, hiện “정답!”.</li>
       <li>Chữ bạn gõ hiện ngay trên khung đang rơi (đúng màu xanh, sai màu đỏ). Gõ nhầm cứ xóa và sửa.</li>
       <li>Để khung rơi chạm đất hoặc bấm “Không biết”: Bolt đập vỡ, hiện đáp án (chạm để sang từ kế tiếp), từ đó quay lại sau vài lượt.</li>
       <li>Bàn phím bị ẩn thì game tự tạm dừng. Không có mạng. Mỗi ván tối đa ${ROUND} từ, ưu tiên những từ lâu chưa chơi nhất; mọi từ đã học lần lượt được chơi hết một vòng.</li></ul>
       <p class="muted small" style="margin-top:10px">${best ? `Kỷ lục: <b>${best.first}/${ROUND}</b> đúng ngay lần đầu · ${fmtTime(best.ms)}` : 'Chưa có kỷ lục'}</p>${poolNote()}</div>
-    ${n >= GAME_MIN ? '<button class="btn primary block" style="margin-top:6px" data-act="start">Bắt đầu</button>' : notReady(n)}`;
+    ${n >= GAME_MIN ? '<button class="btn primary block" data-act="start">Bắt đầu</button>' : notReady(n)}</div>`;
+  lockBounce(root);
   bind(root, { start, learn: () => go('#/practice') });
 }
 
