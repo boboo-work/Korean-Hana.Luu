@@ -3,7 +3,7 @@ import { SEED_VOCAB, SEED_CATS } from './data/vocab.js';
 import { SEED_GRAMMAR } from './data/grammar.js';
 
 export const DEFAULTS = {
-  theme: 'auto', showRoman: true, autoSpeak: true,
+  theme: 'auto', accent: 'navy', showRoman: true, autoSpeak: true,
   newPerDay: 10, reviewPerDay: 20, grammarPerWeek: 10,
   voiceURI: '', aiProvider: 'anthropic', aiKey: '', aiModel: 'claude-opus-5-5',
 };
@@ -26,14 +26,17 @@ function open() {
     r.onerror = () => rej(r.error);
   });
 }
+const inflight = new Set(); // các lần ghi đang dở: nạp lại dữ liệu phải chờ chúng, kẻo đọc bản cũ rồi ghi đè bộ nhớ
 function run(store, mode, fn) {
-  return new Promise((res, rej) => {
+  const p = new Promise((res, rej) => {
     const t = idb.transaction(store, mode);
     const q = fn(t.objectStore(store));
     t.oncomplete = () => res(q && q.result);
     t.onerror = () => rej(t.error);
     t.onabort = () => rej(t.error);
   });
+  if (mode === 'readwrite') { inflight.add(p); const done = () => inflight.delete(p); p.then(done, done); }
+  return p;
 }
 const all = (s) => run(s, 'readonly', (o) => o.getAll());
 const put = (s, v) => run(s, 'readwrite', (o) => o.put(v));
@@ -84,7 +87,7 @@ async function migrateSeed() {
   await setSetting('seedVersion', SEED_VERSION);
 }
 
-export const reload = () => load();
+export const reload = async () => { await Promise.allSettled([...inflight]); return load(); };
 export const freshCard = (key) => run('srs', 'readonly', (o) => o.get(key));
 
 export async function setSetting(k, v) { S.settings[k] = v; await put('kv', { k, v }); }

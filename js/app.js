@@ -1,5 +1,7 @@
 // Khởi động ứng dụng + bộ định tuyến theo hash.
 import { init, S, reload } from './store.js';
+import { applyTheme } from './theme.js';
+import { initViewport, syncViewport } from './viewport.js';
 import { $, esc, icon } from './ui.js';
 import { viewHome, viewStats, viewSettings } from './views/main.js';
 import { viewVocabList, viewVocabDetail, viewVocabEdit, viewCats } from './views/vocab.js';
@@ -22,10 +24,6 @@ const ROUTES = {
   'game-run': viewRun, 'game-drop': viewDrop,
 };
 
-export function applyTheme() {
-  const t = S.settings.theme;
-  if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
-}
 
 function render() {
   const [path, query = ''] = location.hash.replace(/^#\/?/, '').split('?');
@@ -40,10 +38,12 @@ function render() {
   ROUTES[route](root, rest.length ? rest : [], new URLSearchParams(query));
   window.scrollTo(0, 0);
   if (!root.contains(document.activeElement)) root.focus({ preventScroll: true }); // đưa focus vào màn hình mới
+  syncViewport();
 }
 
 init().then(() => {
   applyTheme();
+  initViewport();
   window.addEventListener('hashchange', render);
   // Quay lại tab: nạp lại dữ liệu từ DB (có thể tab khác vừa ghi). Không vẽ lại khi đang làm bài hoặc đang nhập liệu.
   document.addEventListener('visibilitychange', async () => {
